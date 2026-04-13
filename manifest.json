@@ -2,7 +2,7 @@
   "name": "КалорийОК — трекер калорий",
   "short_name": "КалорийОК",
   "description": "Быстрый учёт калорий и КБЖУ. Работает офлайн.",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
