@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+
+    <!-- Apple PWA meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="КалорийОК" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+
+    <!-- Theme color for browser chrome -->
+    <meta name="theme-color" content="#228B46" />
+    <meta name="msapplication-TileColor" content="#228B46" />
+
+    <!-- SEO / OG -->
+    <title>КалорийОК — трекер калорий</title>
+    <meta name="description" content="Быстрый учёт калорий и КБЖУ. База ~140 российских продуктов. Работает офлайн — без интернета." />
+    <meta property="og:title" content="КалорийОК — трекер калорий" />
+    <meta property="og:description" content="Быстрый учёт калорий и КБЖУ. Работает офлайн." />
+    <meta property="og:type" content="website" />
+
+    <!-- Google Fonts — Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" crossorigin src="./assets/index-D1HjJoc9.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B5OZfvct.css">
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- Service Worker registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').then(
+            function (reg) { console.log('[SW] registered', reg.scope); },
+            function (err) { console.warn('[SW] registration failed', err); }
+          );
+        });
+      }
+    </script>
+  </body>
+</html>
