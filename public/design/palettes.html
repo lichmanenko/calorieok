@@ -3,20 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Deep Dish — выбор гаммы</title>
+<title>Deep Dish — дизайн-направление</title>
 <style>
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     background: #ECEDEF; color: #1C1D20; padding: 20px 14px 60px;
   }
   .intro { max-width: 640px; margin: 0 auto 26px; }
   .intro h1 { font-size: 26px; letter-spacing: -0.02em; }
   .intro p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: #4A4C52; }
   .intro p b { color: #1C1D20; }
+  .note {
+    max-width: 640px; margin: 0 auto 30px; background: #fff; border: 1px solid #DFE0E4;
+    border-radius: 16px; padding: 16px 18px; font-size: 14px; line-height: 1.55; color: #3A3C42;
+  }
+  .note h3 { font-size: 15px; margin-bottom: 8px; }
+  .sec-h { max-width: 640px; margin: 34px auto 6px; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #787B82; }
   .scheme { max-width: 640px; margin: 0 auto 34px; }
-  .scheme-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .scheme-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
   .scheme-head .num {
     font-size: 13px; font-weight: 700; color: #fff; background: #1C1D20;
     border-radius: 8px; padding: 3px 8px; letter-spacing: 0.04em;
@@ -56,15 +62,43 @@
   .slot .kc { font-size: 13px; color: var(--mut); }
   .item { display: flex; justify-content: space-between; font-size: 13px; color: var(--mut); padding: 4px 14px 4px 16px; }
   .btn { margin-top: 12px; width: 100%; padding: 13px; border-radius: 14px; border: none; background: var(--acc); color: var(--acc-tx); font-size: 15px; font-weight: 700; }
+  /* Иконки */
+  .icon-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; margin: 0 auto 26px; max-width: 640px; }
+  .icon-card { border-radius: 18px; padding: 12px 8px 10px; text-align: center; border: 1px solid var(--bd); background: var(--bg); }
+  .icon-card .cap { margin-top: 8px; font-size: 11px; color: var(--mut); line-height: 1.3; }
+  .icon-card svg { display: block; margin: 0 auto; }
+  .icons-sec { max-width: 640px; margin: 0 auto 34px; }
+  .icons-sec .scheme-head { margin-bottom: 12px; }
+  .icon-desc { max-width: 640px; margin: 0 auto 10px; font-size: 13.5px; color: #4A4C52; line-height: 1.5; }
+  /* Типографика */
+  .type-demo { max-width: 640px; margin: 0 auto 34px; background: #fff; border: 1px solid #DFE0E4; border-radius: 16px; padding: 20px; }
+  .type-demo .t1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .type-demo .t2 { font-size: 17px; font-weight: 800; margin-top: 10px; }
+  .type-demo .t3 { font-size: 13px; color: #6A6C73; margin-top: 4px; }
+  .type-demo .t4 { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; margin-top: 14px; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
 <div class="intro">
-  <h1>Deep Dish — выбор цветовой гаммы</h1>
-  <p>Семь вариантов, в каждом — светлая и тёмная версия экрана «Сегодня» (обе темы будут в приложении на базе выбранной гаммы). Лучше смотреть с iPhone. <b>Выбери одну и назови номер и имя</b> — например: «3, Томат». Мелкие детали (точные оттенки, скругления) отшлифую после выбора.</p>
+  <h1>Deep Dish — дизайн-направление</h1>
+  <p>Восемь гамм: три твоих кандидата (1–3), гамма по презентации BHC (4), четыре достроенных (5–8). В каждой — светлая и тёмная версии экрана «Сегодня». Ниже — наброски иконки и шрифт. <b>Выбери гамму (номер + имя) и приглянувшийся концепт иконки (И1–И4)</b>. Мелочи отшлифую после выбора.</p>
 </div>
 
-<!-- Шаблон мокапа -->
+<div class="note">
+  <h3>Шрифт — San Francisco Pro: уже решено в твою пользу</h3>
+  На iPhone SF Pro — системный шрифт: подключаю его напрямую (<code>-apple-system</code>), без скачивания. Это легально на платформах Apple, даёт нативное поведение (авто-переключение Display/Text по размеру, табличные цифры для калорий) и <b>ноль сетевых загрузок</b> — офлайн-запуск ничего не ждёт. Ниже — как типографика будет выглядеть на телефоне.
+</div>
+
+<div class="type-demo">
+  <div class="t1">Сегодня</div>
+  <div class="t3">суббота, 3 октября</div>
+  <div class="t4">1 740 <span style="font-size:16px;font-weight:600;color:#6A6C73">ккал из 2 410</span></div>
+  <div class="t2" style="font-weight:600">Завтрак · Обед · Ужин · Перекус</div>
+  <div class="t3">Демонстрация типографики: SF Pro, размеры 28/17/13/34, табличные цифры для калорий.</div>
+</div>
+
+<div class="sec-h">Цветовые гаммы</div>
+
 <template id="tpl">
   <div class="phone">
     <div class="mode"></div>
@@ -99,40 +133,82 @@
 
 <div id="root"></div>
 
+<div class="sec-h">Иконка — наброски</div>
+<div class="icons-sec">
+  <div class="icon-desc">Четыре концепта (И1–И4), каждый в нейтрале и в четырёх гаммах-фаворитах. После выбора концепта — чистовая отрисовка в выбранной гамме и все размеры (192/512, maskable, apple-touch).</div>
+  <div id="icons-root"></div>
+</div>
+
 <script>
 const G = [
-  { n:"1", name:"Оливка", mood:"спокойная, «здоровая», природная",
-    sw:["#FAF9F2","#FFFFFF","#5F7A45","#3C4A2E","#8A8F7E"],
-    light:{bg:"#FAF9F2",card:"#FFFFFF",tx:"#262A1E",mut:"#7C8271",acc:"#5F7A45",accTx:"#FFFFFF",tr:"#E9ECDF",bd:"#E4E6D6"},
-    dark:{bg:"#14160E",card:"#1D2015",tx:"#ECEDE3",mut:"#9AA088",acc:"#A9C57C",accTx:"#1B1F12",tr:"#2A2E1E",bd:"#2A2E1E"} },
-  { n:"2", name:"Терракота", mood:"тёплая, средиземноморская, аппетитная",
-    sw:["#FAF6F0","#FFFFFF","#C05B3C","#33241D","#A79A8E"],
-    light:{bg:"#FAF6F0",card:"#FFFFFF",tx:"#2E241E",mut:"#9A8B7E",acc:"#C05B3C",accTx:"#FFFFFF",tr:"#F0E4D8",bd:"#EBDCCB"},
-    dark:{bg:"#181210",card:"#221A16",tx:"#F2EAE3",mut:"#A69487",acc:"#E08A66",accTx:"#221410",tr:"#33261F",bd:"#33261F"} },
-  { n:"3", name:"Томат", mood:"фирменная Deep Dish: пицца-пай, характерная",
-    sw:["#FAF3EC","#FFFFFF","#C8452C","#2E1B14","#B39C8D"],
-    light:{bg:"#FAF3EC",card:"#FFFFFF",tx:"#2E1F18",mut:"#A08D7E",acc:"#C8452C",accTx:"#FFFFFF",tr:"#F2E0D3",bd:"#EDD8C6"},
-    dark:{bg:"#161009",card:"#201811",tx:"#F3E9DF",mut:"#A89781",acc:"#F0705A",accTx:"#24100A",tr:"#322519",bd:"#322519"} },
-  { n:"4", name:"Брусника", mood:"северная ягода: свежая, чуть прохладная",
+  { n:"1", name:"Матча", mood:"твой кандидат: свежий минимализм",
+    sw:["#F7FAF7","#FFFFFF","#2E9B62","#182420","#8FA396"],
+    light:{bg:"#F7FAF7",card:"#FFFFFF",tx:"#182420",mut:"#7E9386",acc:"#2E9B62",accTx:"#FFFFFF",tr:"#DFEEE4",bd:"#D8EADD"},
+    dark:{bg:"#0E1511",card:"#16201A",tx:"#E8EFEA",mut:"#8FA396",acc:"#63C78F",accTx:"#0B1A10",tr:"#223026",bd:"#223026"} },
+  { n:"2", name:"Брусника", mood:"твой кандидат: свежая, чуть прохладная",
     sw:["#F8F5F6","#FFFFFF","#B23A5B","#2B1D22","#A9989F"],
     light:{bg:"#F8F5F6",card:"#FFFFFF",tx:"#271C21",mut:"#9E8D94",acc:"#B23A5B",accTx:"#FFFFFF",tr:"#EFDFE4",bd:"#E9D7DD"},
     dark:{bg:"#171114",card:"#211920",tx:"#F2EAED",mut:"#A9959D",acc:"#E27A97",accTx:"#2A121A",tr:"#342730",bd:"#342730"} },
-  { n:"5", name:"Матча", mood:"минимализм, свежесть, лёгкая",
-    sw:["#F7FAF7","#FFFFFF","#2E9B62","#16281C","#8FA396"],
-    light:{bg:"#F7FAF7",card:"#FFFFFF",tx:"#182420",mut:"#7E9386",acc:"#2E9B62",accTx:"#FFFFFF",tr:"#DFEEE4",bd:"#D8EADD"},
-    dark:{bg:"#0E1511",card:"#16201A",tx:"#E8EFEA",mut:"#8FA396",acc:"#63C78F",accTx:"#0B1A10",tr:"#223026",bd:"#223026"} },
-  { n:"6", name:"Полночь · янтарь", mood:"тёмная-first: ночная, контрастная, современная",
-    sw:["#F4F5F8","#1B1E27","#12141A","#F5A524","#9BA0B0"],
-    light:{bg:"#F4F5F8",card:"#FFFFFF",tx:"#1A1C22",mut:"#8C90A0",acc:"#D98E1F",accTx:"#FFFFFF",tr:"#E3E5EC",bd:"#DDE0E9"},
-    dark:{bg:"#12141A",card:"#1B1E27",tx:"#E9EBF2",mut:"#9BA0B0",acc:"#F5A524",accTx:"#1F1602",tr:"#272B38",bd:"#272B38"} },
-  { n:"7", name:"Индиго", mood:"сдержанная, «инструментальная», деловая",
+  { n:"3", name:"Индиго", mood:"твой кандидат: сдержанный инструмент",
     sw:["#F6F6FA","#FFFFFF","#4F55C9","#191B2E","#9094B5"],
     light:{bg:"#F6F6FA",card:"#FFFFFF",tx:"#1B1D2C",mut:"#8B8FA8",acc:"#4F55C9",accTx:"#FFFFFF",tr:"#E3E4F2",bd:"#DCDDEF"},
     dark:{bg:"#131419",card:"#1C1E27",tx:"#EBECF3",mut:"#969AB0",acc:"#8B90F0",accTx:"#14142A",tr:"#272A38",bd:"#272A38"} },
+  { n:"4", name:"Лазурь · BHC", mood:"по твоей презентации BHC Старт: глубокая ночь + лазурь",
+    sw:["#0D1B2A","#16283A","#2793C0","#4FB3DD","#5AB776"],
+    light:{bg:"#F5F8FA",card:"#FFFFFF",tx:"#12212E",mut:"#7C93A3",acc:"#1F7FA8",accTx:"#FFFFFF",tr:"#DCE9F0",bd:"#D5E3EC"},
+    dark:{bg:"#0D1B2A",card:"#16283A",tx:"#E8F0F5",mut:"#8FA6B8",acc:"#4FB3DD",accTx:"#0A1E2B",tr:"#22374B",bd:"#22374B"} },
+  { n:"5", name:"Мята", mood:"прохладная мятно-аквамариновая, между Матчей и морем",
+    sw:["#F4FAF9","#FFFFFF","#1FA094","#15201E","#8CA39E"],
+    light:{bg:"#F4FAF9",card:"#FFFFFF",tx:"#15201E",mut:"#7F938F",acc:"#1FA094",accTx:"#FFFFFF",tr:"#DCEDEA",bd:"#D6E9E5"},
+    dark:{bg:"#0E1716",card:"#16211F",tx:"#E7F0EE",mut:"#8CA39E",acc:"#52C9B4",accTx:"#0A1A16",tr:"#21302C",bd:"#21302C"} },
+  { n:"6", name:"Хвоя", mood:"глубокий тёмно-зелёный, солиднее Матчи",
+    sw:["#F6F9F7","#FFFFFF","#1E6B52","#14201A","#93A69A"],
+    light:{bg:"#F6F9F7",card:"#FFFFFF",tx:"#14201A",mut:"#83958B",acc:"#1E6B52",accTx:"#FFFFFF",tr:"#DFEBE5",bd:"#D8E6DE"},
+    dark:{bg:"#0F1713",card:"#18231D",tx:"#E9F0EC",mut:"#93A69A",acc:"#4FBE8F",accTx:"#0A1A12",tr:"#202E25",bd:"#202E25"} },
+  { n:"7", name:"Графит · сталь", mood:"нейтральный холодный фон, стальной синий акцент",
+    sw:["#F5F6F8","#FFFFFF","#44748F","#1B2026","#969DAA"],
+    light:{bg:"#F5F6F8",card:"#FFFFFF",tx:"#1B2026",mut:"#8B929C",acc:"#44748F",accTx:"#FFFFFF",tr:"#E2E6EB",bd:"#DCE1E7"},
+    dark:{bg:"#14171B",card:"#1D2127",tx:"#E9EDF2",mut:"#969DAA",acc:"#7FA8C9",accTx:"#101B24",tr:"#262B33",bd:"#262B33"} },
+  { n:"8", name:"Слива", mood:"приглушённый ягодно-сливовый, мягче Брусники",
+    sw:["#F8F6F9","#FFFFFF","#7D5185","#221A24","#A195A6"],
+    light:{bg:"#F8F6F9",card:"#FFFFFF",tx:"#221A24",mut:"#978D9B",acc:"#7D5185",accTx:"#FFFFFF",tr:"#EBE2EE",bd:"#E4DAE8"},
+    dark:{bg:"#171218",card:"#201823",tx:"#F0EAF2",mut:"#A195A6",acc:"#B78CC0",accTx:"#221331",tr:"#2C2230",bd:"#2C2230"} },
 ];
+
+// ── Иконки: 4 концепта, инлайн-SVG c var(--acc)/var(--acc-tx) ──
+const ICONS = [
+  { id:"И1", name:"Пай сверху", svg: `
+    <svg width="64" height="64" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="54" fill="var(--acc)"/>
+      <circle cx="60" cy="60" r="40" fill="var(--acc-tx)"/>
+      <circle cx="48" cy="52" r="9" fill="var(--acc)"/>
+      <circle cx="70" cy="62" r="9" fill="var(--acc)"/>
+      <circle cx="54" cy="74" r="9" fill="var(--acc)"/>
+    </svg>` },
+  { id:"И2", name:"Срез пая", svg: `
+    <svg width="64" height="64" viewBox="0 0 120 120">
+      <path d="M14,58 A46,46 0 0 0 106,58 Z" fill="var(--acc)"/>
+      <path d="M28,58 A32,32 0 0 0 92,58 Z" fill="var(--acc-tx)"/>
+      <path d="M42,58 A18,18 0 0 0 78,58 Z" fill="var(--acc)"/>
+      <rect x="14" y="50" width="92" height="10" rx="5" fill="var(--acc)"/>
+    </svg>` },
+  { id:"И3", name:"Монограмма D", svg: `
+    <svg width="64" height="64" viewBox="0 0 120 120">
+      <path d="M34,20 H52 A40,40 0 0 1 52,100 H34 Z" fill="var(--acc)"/>
+      <circle cx="68" cy="60" r="11" fill="var(--acc)" opacity="0.55"/>
+    </svg>` },
+  { id:"И4", name:"Кольцо нормы", svg: `
+    <svg width="64" height="64" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="44" fill="none" stroke="var(--tr2)" stroke-width="16"/>
+      <circle cx="60" cy="60" r="44" fill="none" stroke="var(--acc)" stroke-width="16"
+              stroke-linecap="round" stroke-dasharray="198.6 276.5" transform="rotate(-90 60 60)"/>
+      <circle cx="60" cy="60" r="9" fill="var(--acc)"/>
+    </svg>` },
+];
+
 const tpl = document.getElementById('tpl');
 const root = document.getElementById('root');
-const css = v => Object.entries(v).map(([k,x])=>`--${k==='tr'?'tr':k}:${x}`).join(';');
+const css = v => Object.entries(v).map(([k,x])=>`--${k}:${x}`).join(';');
 for (const g of G) {
   const s = document.createElement('section'); s.className = 'scheme';
   const head = document.createElement('div'); head.className='scheme-head';
@@ -147,6 +223,26 @@ for (const g of G) {
     pair.appendChild(node);
   }
   s.append(head, sw, pair); root.appendChild(s);
+}
+
+// Секция иконок: каждый концепт в нейтрале + в гаммах 1–4
+const favs = [G[0], G[1], G[2], G[3]];
+const iroot = document.getElementById('icons-root');
+for (const ic of ICONS) {
+  const sec = document.createElement('div'); sec.className = 'icons-sec';
+  sec.insertAdjacentHTML('beforeend', `<div class="scheme-head"><span class="num">${ic.id}</span><h2>${ic.name}</h2></div>`);
+  const row = document.createElement('div'); row.className = 'icon-row';
+  const variants = [
+    { name: 'нейтраль', vars: { bg:'#F2F3F5', acc:'#2A2D33', accTx:'#F2F3F5', tr2:'#D8DBE0', bd:'#DFE0E4', mut:'#787B82' } },
+    ...favs.map(g => ({ name: g.name, vars: { bg: g.light.bg, acc: g.light.acc, accTx: g.light.accTx, tr2: g.light.tr, bd: g.light.bd, mut: g.light.mut } })),
+  ];
+  for (const v of variants) {
+    const card = document.createElement('div'); card.className = 'icon-card';
+    card.style.cssText = css(v.vars);
+    card.innerHTML = ic.svg + `<div class="cap">${v.name}</div>`;
+    row.appendChild(card);
+  }
+  sec.appendChild(row); iroot.appendChild(sec);
 }
 </script>
 </body>
