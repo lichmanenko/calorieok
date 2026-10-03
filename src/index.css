@@ -1,3 +1,50 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Дизайн-токены «Графит·сталь» (SPEC §8; утверждена В. 04.10.2026) */
+:root {
+  --bg: #F5F6F8;
+  --bg2: #ECF0F4;
+  --glass: rgba(255, 255, 255, 0.60);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --tx: #1B2026;
+  --mut: #8B929C;
+  --acc: #44748F;
+  --acc2: #6E9BBB;
+  --acc-fg: #3A647B;
+  --veil: rgba(68, 116, 143, 0.10);
+  --tr: rgba(27, 32, 38, 0.07);
+  --ok: #3F9B6C;
+  --warn: #C0523C;
+}
+
+.dark {
+  --bg: #14171B;
+  --bg2: #191E26;
+  --glass: rgba(255, 255, 255, 0.065);
+  --glass-strong: rgba(255, 255, 255, 0.10);
+  --tx: #E9EDF2;
+  --mut: #969DAA;
+  --acc: #7FA8C9;
+  --acc2: #AECBE2;
+  --acc-fg: #9ABCD9;
+  --veil: rgba(127, 168, 201, 0.12);
+  --tr: rgba(255, 255, 255, 0.09);
+  --ok: #6FC79A;
+  --warn: #E0836B;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  background: linear-gradient(185deg, var(--bg) 0%, var(--bg2) 100%);
+  background-attachment: fixed;
+  color: var(--tx);
+  -webkit-font-smoothing: antialiased;
+}
