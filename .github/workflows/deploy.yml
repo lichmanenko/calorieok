@@ -21,12 +21,13 @@ jobs:
       # Публикация: собранный dist -> ветка deploy (GitHub Pages читает её корень)
       - name: Deploy dist to branch `deploy`
         env:
-          GITHUB_SHA_SHORT: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA_SHORT: ${{ github.sha }}
         run: |
           cd dist
           git init -q
           git config user.name "deploy-bot"
           git config user.email "deploy-bot@users.noreply.github.com"
           git add -A
-          git commit -qm "deploy ${GITHUB_SHA_SHORT:0:7}"
+          git commit -qm "deploy ${SHA_SHORT:0:7}"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:deploy
