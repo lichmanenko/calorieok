@@ -6,7 +6,7 @@
 <title>Deep Dish — макеты экранов (интерактив)</title>
 <style>
   :root {
-    --bg: #F5F6F8; --bg2: #ECF0F4;
+    --bg: #F7F9FB; --bg2: #E7EDF3; --bg3: #DCE6EF;
     --glass: rgba(255,255,255,.60); --glass-strong: rgba(255,255,255,.78);
     --tx: #1B2026; --mut: #8B929C;
     --acc: #44748F; --acc2: #6E9BBB; --acc-fg: #3A647B;
@@ -14,7 +14,7 @@
     --ok: #3F9B6C; --warn: #C0523C;
   }
   .dark {
-    --bg: #14171B; --bg2: #191E26;
+    --bg: #14171B; --bg2: #18202A; --bg3: #1E2A38;
     --glass: rgba(255,255,255,.065); --glass-strong: rgba(255,255,255,.10);
     --tx: #E9EDF2; --mut: #969DAA;
     --acc: #7FA8C9; --acc2: #AECBE2; --acc-fg: #9ABCD9;
@@ -39,7 +39,7 @@
   /* Фрейм телефона */
   .frame {
     position: relative; width: 100%; max-width: 430px; border-radius: 34px; overflow: hidden;
-    background: linear-gradient(185deg, var(--bg) 0%, var(--bg2) 100%);
+    background: linear-gradient(190deg, var(--bg) 0%, var(--bg2) 58%, var(--bg3) 100%);
     color: var(--tx); min-height: 780px; display: flex; flex-direction: column;
     box-shadow: 0 20px 50px rgba(15,18,26,.20);
   }
@@ -57,6 +57,12 @@
     font-size: 13.5px; line-height: 1.45;
   }
   .banner.show { transform: translateY(0); }
+  .banner::before {
+    content: ""; position: absolute; top: 0; left: 18px; right: 18px; height: 3px; border-radius: 0 0 4px 4px;
+    background: linear-gradient(90deg, var(--acc), var(--acc2));
+  }
+  .banner.good::before { background: linear-gradient(90deg, var(--ok), var(--acc2)); }
+  .banner.bad::before { background: linear-gradient(90deg, var(--warn), #E0A08F); }
   .banner .em { font-size: 20px; line-height: 1; margin-top: 1px; }
   .banner .x {
     position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 9px; border: none;
@@ -94,7 +100,7 @@
   .it span:last-child { color: var(--tx); font-weight: 550; }
   .addfood {
     margin-top: 14px; width: 100%; padding: 15px; border-radius: 22px; border: none;
-    background: var(--veil); color: var(--acc-fg); font: inherit; font-size: 15px; font-weight: 650; cursor: pointer;
+    background: linear-gradient(135deg, rgba(68,116,143,.16), rgba(110,155,187,.08)); color: var(--acc-fg); font: inherit; font-size: 15px; font-weight: 650; cursor: pointer;
   }
   /* Таб-бар */
   .tabbar {
