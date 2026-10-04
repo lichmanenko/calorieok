@@ -2,49 +2,169 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Дизайн-токены «Графит·сталь» (SPEC §8; утверждена В. 04.10.2026) */
+/* Токены graphite default; перекрываются applyTheme() при выборе гаммы */
 :root {
-  --bg: #F5F6F8;
-  --bg2: #ECF0F4;
-  --glass: rgba(255, 255, 255, 0.60);
-  --glass-strong: rgba(255, 255, 255, 0.78);
-  --tx: #1B2026;
-  --mut: #8B929C;
-  --acc: #44748F;
-  --acc2: #6E9BBB;
-  --acc-fg: #3A647B;
-  --veil: rgba(68, 116, 143, 0.10);
-  --tr: rgba(27, 32, 38, 0.07);
-  --ok: #3F9B6C;
-  --warn: #C0523C;
+  --bg: #F7F9FB; --bg2: #E7EDF3; --bg3: #DCE6EF;
+  --glass: rgba(255,255,255,.60); --glass-strong: rgba(255,255,255,.78);
+  --tx: #1B2026; --mut: #8B929C;
+  --acc: #44748F; --acc2: #6E9BBB; --acc-fg: #3A647B;
+  --veil: rgba(68,116,143,.10); --tr: rgba(27,32,38,.07);
+  --ok: #3F9B6C; --warn: #C0523C;
+  --r1: rgba(68,116,143,.12); --r2: rgba(110,155,187,.10);
 }
 
-.dark {
-  --bg: #14171B;
-  --bg2: #191E26;
-  --glass: rgba(255, 255, 255, 0.065);
-  --glass-strong: rgba(255, 255, 255, 0.10);
-  --tx: #E9EDF2;
-  --mut: #969DAA;
-  --acc: #7FA8C9;
-  --acc2: #AECBE2;
-  --acc-fg: #9ABCD9;
-  --veil: rgba(127, 168, 201, 0.12);
-  --tr: rgba(255, 255, 255, 0.09);
-  --ok: #6FC79A;
-  --warn: #E0836B;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-}
-
+html, body, #root { height: 100%; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-  background: linear-gradient(185deg, var(--bg) 0%, var(--bg2) 100%);
-  background-attachment: fixed;
-  color: var(--tx);
+  background: var(--bg); color: var(--tx);
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
 }
+
+/* ── Фон приложения: линейный перелив + радиальные пятна (позиции — инлайн от пресета) ── */
+.dd-bg {
+  position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(circle at var(--r1x, 88%) var(--r1y, 4%), var(--r1) 0, transparent var(--r1s, 340px)),
+    radial-gradient(circle at var(--r2x, 2%) var(--r2y, 96%), var(--r2) 0, transparent var(--r2s, 300px)),
+    linear-gradient(190deg, var(--bg) 0%, var(--bg2) 58%, var(--bg3) 100%);
+  transition: opacity .3s ease;
+}
+
+/* ── Общие ── */
+.dd-card {
+  border-radius: 24px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+}
+.dd-num { font-variant-numeric: tabular-nums; }
+
+/* ── Кольцо ── */
+.dd-ring { position: relative; flex: none; }
+.dd-ring-val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* ── Нижний лист ── */
+.dd-sheet-bg {
+  position: fixed; inset: 0; z-index: 50; background: rgba(8,10,14,.34);
+  opacity: 0; pointer-events: none; transition: opacity .3s;
+}
+.dd-sheet-bg.show { opacity: 1; pointer-events: auto; }
+.dd-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 51;
+  border-radius: 30px 30px 0 0;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
+  padding: 14px 16px calc(24px + env(safe-area-inset-bottom));
+  transform: translateY(105%); transition: transform .4s cubic-bezier(.22,1,.36,1);
+  max-height: 88vh; overflow-y: auto;
+}
+.dd-sheet.show { transform: translateY(0); }
+.dd-grab { width: 38px; height: 5px; border-radius: 3px; background: var(--tr); margin: 0 auto 14px; }
+.dd-sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.dd-sheet-note { font-size: 12.5px; color: var(--mut); margin-bottom: 14px; line-height: 1.45; }
+
+/* ── Действие (кнопка без кнопочности) ── */
+.dd-action {
+  display: block; width: 100%; padding: 15px; border-radius: 22px; border: none;
+  background: linear-gradient(135deg, var(--veil), color-mix(in srgb, var(--veil) 55%, transparent));
+  color: var(--acc-fg); font: inherit; font-size: 15.5px; font-weight: 650; cursor: pointer;
+}
+.dd-action.strong { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff; }
+.dark .dd-action.strong { color: #101B24; }
+.dd-action:disabled { opacity: .45; }
+
+/* ── Сегмент ── */
+.dd-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.dd-seg button {
+  font: inherit; font-size: 13px; font-weight: 600; padding: 8px 13px; border-radius: 14px;
+  border: none; background: var(--veil); color: var(--mut); cursor: pointer;
+}
+.dd-seg button.on { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff; }
+.dark .dd-seg button.on { color: #101B24; }
+
+/* ── Тумблер ── */
+.dd-sw { position: relative; width: 46px; height: 28px; border-radius: 15px; background: var(--tr); border: none; cursor: pointer; transition: background .25s; flex: none; }
+.dd-sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.18); transition: transform .25s; }
+.dd-sw.on { background: linear-gradient(135deg, var(--acc), var(--acc2)); }
+.dd-sw.on::after { transform: translateX(18px); }
+
+/* ── Модал ── */
+.dd-modal-bg { position: fixed; inset: 0; z-index: 60; background: rgba(8,10,14,.4); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.dd-modal {
+  width: 100%; max-width: 340px; border-radius: 26px; padding: 22px 20px;
+  background: var(--glass-strong); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
+  box-shadow: 0 20px 50px rgba(10,14,20,.25);
+}
+.dd-modal-text { font-size: 14.5px; line-height: 1.5; }
+.dd-modal-row { display: flex; gap: 10px; margin-top: 18px; }
+
+/* ── Сворачиваемая секция ── */
+.dd-collapse { margin-bottom: 14px; }
+.dd-collapse-head {
+  display: flex; justify-content: space-between; align-items: center; width: 100%;
+  padding: 12px 16px; border-radius: 20px; border: none; background: var(--glass);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  font: inherit; color: var(--tx); cursor: pointer; margin-bottom: 8px; text-align: left;
+}
+.dd-collapse-title { font-size: 15px; font-weight: 650; }
+.dd-collapse-right { display: flex; align-items: center; gap: 10px; color: var(--mut); font-size: 12px; }
+.dd-chev { font-size: 16px; transition: transform .2s; display: inline-block; }
+.dd-chev.up { transform: rotate(180deg); }
+
+/* ── Строка позиции ── */
+.dd-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  width: 100%; padding: 13px 14px; border-radius: 20px; border: none;
+  background: var(--glass); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  font: inherit; color: var(--tx); text-align: left; margin-bottom: 6px; cursor: pointer;
+}
+.dd-item .nm { font-size: 14.5px; font-weight: 550; }
+.dd-item .sub { font-size: 11.5px; color: var(--mut); margin-top: 2px; }
+.dd-item .kc { font-size: 12.5px; color: var(--mut); white-space: nowrap; }
+.dd-item .plus {
+  flex: none; width: 34px; height: 34px; border-radius: 12px; border: none;
+  background: var(--veil); color: var(--acc-fg); font-size: 18px; font-weight: 700; cursor: pointer;
+}
+
+/* ── Поля ввода ── */
+.dd-input {
+  width: 100%; padding: 13px 14px; border-radius: 18px; border: none;
+  background: var(--glass); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  font: inherit; font-size: 15px; color: var(--tx); outline: none;
+}
+.dd-input::placeholder { color: var(--mut); }
+.dd-field-label { font-size: 12px; font-weight: 600; color: var(--mut); margin: 12px 2px 6px; }
+.dd-input-row { display: flex; gap: 8px; }
+.dd-input-row .dd-input { flex: 1; }
+
+/* ── Свайп-анимация дня ── */
+.dd-slide { }
+.dd-slide.slide-from-r { animation: dd-in-r .26s ease; }
+.dd-slide.slide-from-l { animation: dd-in-l .26s ease; }
+@keyframes dd-in-r { from { opacity: .3; transform: translateX(22px); } to { opacity: 1; transform: none; } }
+@keyframes dd-in-l { from { opacity: .3; transform: translateX(-22px); } to { opacity: 1; transform: none; } }
+
+/* ── Таб-бар ── */
+.dd-tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; gap: 4px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+}
+.dd-tab {
+  flex: 1; text-align: center; padding: 8px 4px; border-radius: 16px; font-size: 11px;
+  color: var(--mut); background: transparent; border: none; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.dd-tab .ti { font-size: 20px; display: block; margin-bottom: 2px; opacity: .85; }
+.dd-tab.on { background: var(--glass); color: var(--acc-fg); }
+
+/* ── Прочее ── */
+.dd-link-btn { background: none; border: none; color: var(--acc-fg); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; padding: 8px 10px; }
+.dd-warnmark { color: var(--warn); font-size: 12px; }
+.dd-star { font-size: 13px; }
+.dd-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dd-cal-cell {
+  padding: 9px 0; border-radius: 14px; border: none; background: var(--tr); color: var(--tx);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.dd-cal-cell.sel { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff; font-weight: 700; }
+.dark .dd-cal-cell.sel { color: #101B24; }
+.dd-cal-cell.today { box-shadow: inset 0 0 0 1.5px var(--acc); }
