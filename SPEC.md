@@ -42,8 +42,8 @@ Apple Health — через Shortcuts поверх API NAS (M3).
 | `foods` | name, brand, category, kcalPer100g, pPer100g, fPer100g, cPer100g, portionG, portionLabel, barcode, source, ownerId, isPublic |
 | `recipes` | name, items: [{foodId, grams}], yieldG, (расчётные КБЖУ/100г кэшируются), ownerId, isPublic |
 | `saved_meals` | name, items: [{foodId, grams}], slotHint, ownerId |
-| `slots` | name, sortOrder, isDefault, **defaultTime (HH:MM — автоприсвоение времени приёма; перекус без дефолита — спрашивает)**, ownerId |
-| `entries` | userId, date (локальная YYYY-MM-DD), timeEaten (HH:MM), slotId, kind: food\|recipe, refId, grams, snapshot: {kcal,p,f,c}, note |
+| `slots` | name, sortOrder, isDefault, defaultTime (HH:MM — автоподстановка при вводе; у перекуса — «сейчас»), ownerId |
+| `entries` | userId, date (локальная YYYY-MM-DD), timeEaten (HH:MM — у каждой записи своё), slotId, kind: food\|recipe, refId, grams, snapshot: {kcal,p,f,c}, note |
 | `weight_logs` | userId, date, weightKg, bodyFatPct?, source: manual\|health |
 | `profiles` | userId, пол, возраст, рост, формула (mifflin\|katch\|manual), manualTdee?, активность, цель, темп кг/нед, цель веса |
 | `norma_history` | userId, date, tdeeEstimate, targetKcal, method: formula\|adaptive, explanation (JSON для экрана «почему») |
