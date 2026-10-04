@@ -1,16 +1,15 @@
-// Каркас: фон-радиальные пресеты с кросс-фейдом, таб-бар, онбординг, экраны
+// Каркас: фон-радиальные пресеты с кросс-фейдом, таб-бар (Сегодня · Профиль · Настройки), онбординг
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadSettings, saveSettings, applyTheme, RADIALS, todayISO, type DeviceSettings } from './lib';
 import { track } from './store';
 import { Onboarding } from './onboarding';
 import { TodayScreen } from './screen-today';
 import { AddScreen } from './screen-add';
-import { HistoryScreen } from './screen-history';
 import { ProfileScreen } from './screen-profile';
 import { SettingsScreen } from './screen-settings';
 import type { Slot } from './db';
 
-type Tab = 'today' | 'history' | 'profile';
+type Tab = 'today' | 'profile' | 'settings';
 
 export default function App() {
   const [settings, setSettingsState] = useState<DeviceSettings>(() => loadSettings());
@@ -21,7 +20,6 @@ export default function App() {
   const [addOpen, setAddOpen] = useState(false);
   const [addSlot, setAddSlot] = useState<Slot | null>(null);
   const [onboarding, setOnboarding] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
 
   const dark = useMemo(() => {
     if (settings.theme !== 'auto') return settings.theme === 'dark';
@@ -38,8 +36,34 @@ export default function App() {
 
   useEffect(() => { track('app_open', { online: navigator.onLine, cold: true }); }, []);
 
+  // Автоскрытие таб-бара: скролл вниз или 4 с бездействия; возврат — тап по нижней зоне или скролл вверх
+  const [barHidden, setBarHidden] = useState(false);
+  const lastY = useRef(0);
+  const idleTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (y > lastY.current + 6) setBarHidden(true);
+      else if (y < lastY.current - 6) setBarHidden(false);
+      lastY.current = y;
+    };
+    const onActivity = () => {
+      setBarHidden(false);
+      window.clearTimeout(idleTimer.current);
+      idleTimer.current = window.setTimeout(() => setBarHidden(true), 4000);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('pointerdown', onActivity);
+    onActivity();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('pointerdown', onActivity);
+      window.clearTimeout(idleTimer.current);
+    };
+  }, []);
+
   // Кросс-фейд фоновых радиальных пресетов при смене экрана
-  const screen = addOpen ? 'add' : onboarding ? 'onboarding' : showSettings ? 'settings' : tab;
+  const screen = addOpen ? 'add' : onboarding ? 'onboarding' : tab === 'settings' ? 'settings' : tab === 'profile' ? 'profile' : 'today';
   const bgA = useRef<HTMLDivElement>(null);
   const bgB = useRef<HTMLDivElement>(null);
   const useA = useRef(true);
@@ -74,26 +98,28 @@ export default function App() {
 
       {addOpen
         ? <AddScreen date={date} slot={addSlot} onDone={() => setAddOpen(false)} />
-        : showSettings
-          ? <SettingsScreen settings={settings} setSettings={setSettings} onClose={() => setShowSettings(false)}
-              onRestartOnboarding={() => { setShowSettings(false); setOnboarding(true); }} />
-          : <>
-            {tab === 'today' && (
-              <TodayScreen
-                date={date} setDate={setDate} showTime={settings.showTime}
-                onAdd={slot => { setAddSlot(slot); setAddOpen(true); }}
-              />
-            )}
-            {tab === 'history' && <HistoryScreen onPickDate={iso => { setDate(iso); setTab('today'); }} />}
-            {tab === 'profile' && <ProfileScreen />}
-          </>}
+        : <>
+          {tab === 'today' && (
+            <TodayScreen
+              date={date} setDate={setDate} showTime={settings.showTime}
+              onAdd={slot => { setAddSlot(slot); setAddOpen(true); }}
+            />
+          )}
+          {tab === 'profile' && <ProfileScreen />}
+          {tab === 'settings' && (
+            <SettingsScreen settings={settings} setSettings={setSettings} onRestartOnboarding={() => setOnboarding(true)} />
+          )}
+        </>}
 
-      <nav className="dd-tabbar">
-        <TabBtn on={tab === 'today' && !addOpen} icon="◍" label="Сегодня" onClick={() => { setAddOpen(false); setShowSettings(false); setTab('today'); }} />
-        <TabBtn on={tab === 'history'} icon="◫" label="История" onClick={() => { setAddOpen(false); setShowSettings(false); setTab('history'); }} />
-        <TabBtn on={tab === 'profile'} icon="◔" label="Профиль" onClick={() => { setAddOpen(false); setShowSettings(false); setTab('profile'); }} />
-        <TabBtn on={showSettings} icon="⚙︎" label="Ещё" onClick={() => { setAddOpen(false); setShowSettings(true); }} />
-      </nav>
+      {!addOpen && barHidden && <div className="dd-tabzone" onClick={() => setBarHidden(false)} />}
+      {!addOpen && (
+        <nav className={`dd-tabbar${barHidden ? ' hidden' : ''}`}>
+          <TabBtn on={tab === 'today'} icon="◍" label="Сегодня"
+            onClick={() => { setTab('today'); setDate(todayISO()); /* повторный тап — к текущей дате */ }} />
+          <TabBtn on={tab === 'profile'} icon="◔" label="Профиль" onClick={() => setTab('profile')} />
+          <TabBtn on={tab === 'settings'} icon="⚙︎" label="Настройки" onClick={() => setTab('settings')} />
+        </nav>
+      )}
     </>
   );
 }

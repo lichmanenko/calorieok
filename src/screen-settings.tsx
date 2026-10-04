@@ -7,8 +7,8 @@ import { PALETTES, type DeviceSettings, todayISO } from './lib';
 import { exportJSON, exportCSV, download, wipeAll, track } from './store';
 import { Segmented, Confirm } from './ui';
 
-export function SettingsScreen({ settings, setSettings, onClose, onRestartOnboarding }: {
-  settings: DeviceSettings; setSettings: (s: DeviceSettings) => void; onClose: () => void; onRestartOnboarding: () => void;
+export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
+  settings: DeviceSettings; setSettings: (s: DeviceSettings) => void; onRestartOnboarding: () => void;
 }) {
   const [confirmWipe, setConfirmWipe] = useState(false);
   const slots = useLiveQuery(async () =>
@@ -16,10 +16,7 @@ export function SettingsScreen({ settings, setSettings, onClose, onRestartOnboar
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-28">
-      <div className="flex items-center gap-2 mb-4">
-        <button className="dd-link-btn" onClick={onClose}>← Назад</button>
-        <h1 className="text-xl font-bold">Настройки</h1>
-      </div>
+      <h1 className="text-xl font-bold mb-4">Настройки</h1>
 
       <div className="dd-field-label" style={{ marginTop: 0 }}>Цветовая гамма</div>
       <div className="dd-card p-4">
@@ -66,7 +63,7 @@ export function SettingsScreen({ settings, setSettings, onClose, onRestartOnboar
       </div>
 
       <p className="text-[10px] mt-6 text-center" style={{ color: 'var(--mut)' }}>
-        Deep Dish · M0 · работает офлайн · синхронизация появится в M2
+        Deep Dish · v{__APP_VER__} · сборка {__APP_SHA__} · работает офлайн · синхронизация в M2
       </p>
 
       <Confirm open={confirmWipe} text="Точно удалить ВСЁ? Дневник, каталог и профиль исчезнут безвозвратно."

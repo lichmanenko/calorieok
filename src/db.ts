@@ -56,6 +56,8 @@ export interface WeightLog {
 export interface Profile {
   userId: string;
   gender: 'male' | 'female'; age: number; heightCm: number;
+  /** текущий вес — точка отсчёта нормы (M1: старт лога веса) */
+  weightKg?: number;
   formula: 'mifflin' | 'manual'; manualTdee?: number;
   activity: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   goal: 'none' | 'lose' | 'maintain' | 'gain';
@@ -130,6 +132,17 @@ class DeepDishDb extends Dexie {
             : s.id === 'slot-lunch' ? '13:00' : s.id === 'slot-dinner' ? '19:00' : null;
         }
       });
+    });
+    // v3 — индекс createdAt для «недавних» и последней порции (без него orderBy падает)
+    this.version(3).stores({
+      foods: 'id, name, category, barcode, ownerId, source, deletedAt, star',
+      recipes: 'id, name, ownerId, deletedAt, star',
+      savedMeals: 'id, name, ownerId, deletedAt',
+      slots: 'id, ownerId, sortOrder, deletedAt',
+      entries: 'id, userId, date, slotId, refId, createdAt, deletedAt, [userId+date]',
+      weightLogs: 'id, userId, date, deletedAt, [userId+date]',
+      profiles: 'userId',
+      events: 'id, ts, name',
     });
   }
 }

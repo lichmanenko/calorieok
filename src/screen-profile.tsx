@@ -1,8 +1,9 @@
-// Профиль: биометрия, формула, цель, темп + стартовая норма КБЖУ
-import React, { useEffect, useState } from 'react';
+// Профиль: биометрия (с текущим весом), формула, цель + норма с раскладкой; «Сохранить» активна только при изменениях
+import { useEffect, useState } from 'react';
 import { getProfile, saveProfile, calcNorma, track } from './store';
 import type { Profile } from './db';
 import { Segmented } from './ui';
+import { NumField } from './onboarding';
 
 const DEFAULT: Profile = {
   userId: 'local', gender: 'male', age: 35, heightCm: 175,
@@ -11,16 +12,19 @@ const DEFAULT: Profile = {
 
 export function ProfileScreen() {
   const [pr, setPr] = useState<Profile | null>(null);
+  const [baseline, setBaseline] = useState('');
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => { getProfile().then(p => setPr(p ?? DEFAULT)); }, []);
+  useEffect(() => { getProfile().then(p => { setPr(p ?? DEFAULT); setBaseline(JSON.stringify(p ?? DEFAULT)); }); }, []);
   if (!pr) return <div className="min-h-screen" />;
 
   const norma = calcNorma(pr);
+  const dirty = JSON.stringify({ ...pr, updatedAt: 0 }) !== JSON.stringify({ ...JSON.parse(baseline || '{}'), updatedAt: 0 });
   const set = (patch: Partial<Profile>) => { setPr({ ...pr, ...patch }); setSaved(false); };
 
   async function save() {
     await saveProfile(pr!);
+    setBaseline(JSON.stringify(pr!));
     setSaved(true);
     track('profile_saved', { goal: pr!.goal, formula: pr!.formula });
   }
@@ -34,10 +38,11 @@ export function ProfileScreen() {
         <Segmented value={pr.gender} onChange={v => set({ gender: v })} options={[{ value: 'male', label: '♂ мужской' }, { value: 'female', label: '♀ женский' }]} />
 
         <div className="dd-input-row mt-2">
-          <Num label="возраст" v={pr.age} set={v => set({ age: v })} />
-          <Num label="рост, см" v={pr.heightCm} set={v => set({ heightCm: v })} />
-          {pr.goalWeightKg !== undefined && <Num label="цель, кг" v={pr.goalWeightKg} set={v => set({ goalWeightKg: v })} />}
+          <NumField label="возраст" value={pr.age} onChange={n => set({ age: n ?? 0 })} />
+          <NumField label="рост, см" value={pr.heightCm} onChange={n => set({ heightCm: n ?? 0 })} />
+          <NumField label="вес, кг" value={pr.weightKg} onChange={n => set({ weightKg: n })} />
         </div>
+        <div className="text-[10px] mt-2" style={{ color: 'var(--mut)' }}>текущий вес — точка отсчёта нормы; лог веса и динамика — в M1</div>
       </div>
 
       <div className="dd-card p-4 mb-4">
@@ -53,7 +58,7 @@ export function ProfileScreen() {
         ]} />
         {pr.formula === 'manual' && (
           <div className="mt-2">
-            <Num label="расход (TDEE), ккал/день" v={pr.manualTdee ?? 2400} set={v => set({ manualTdee: v })} />
+            <NumField label="расход (TDEE), ккал/день" value={pr.manualTdee} onChange={n => set({ manualTdee: n })} />
           </div>
         )}
       </div>
@@ -71,37 +76,27 @@ export function ProfileScreen() {
               { value: '0.25', label: '0,25' }, { value: '0.5', label: '0,5' }, { value: '0.75', label: '0,75' }, { value: '1', label: '1,0' },
             ]} />
             <div className="dd-field-label">Целевой вес, кг</div>
-            <Num label="" v={pr.goalWeightKg ?? 75} set={v => set({ goalWeightKg: v })} />
+            <NumField label="" value={pr.goalWeightKg} onChange={n => set({ goalWeightKg: n })} />
           </>
         )}
       </div>
 
-      {norma && (
+      {norma ? (
         <div className="dd-card p-5 text-center mb-4">
           <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--mut)' }}>Дневная норма</div>
           <div className="text-3xl font-extrabold dd-num mt-1" style={{ color: 'var(--acc-fg)' }}>{norma.kcal}</div>
           <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>ккал · Б {norma.p} г · Ж {norma.f} г · У {norma.c} г</div>
-          <div className="text-[10px] mt-2" style={{ color: 'var(--mut)' }}>
-            стартовая норма от {pr.formula === 'manual' ? 'ручного расхода' : 'формулы'}; через 2 недели начнёт подстраиваться под факт (M1)
+          <div className="text-[10px] mt-2 dd-num" style={{ color: 'var(--mut)' }}>
+            расход ≈ {norma.tdee}{norma.adj !== 0 ? ` → ${norma.adj > 0 ? '+' : ''}${norma.adj} по темпу` : ' · без поправки'} · не ниже {Math.round(norma.bmr * 1.1)}
           </div>
+        </div>
+      ) : (
+        <div className="dd-card p-4 mb-4 text-center text-xs" style={{ color: 'var(--mut)' }}>
+          укажи текущий вес — посчитается норма
         </div>
       )}
 
-      <button className="dd-action strong" onClick={save}>{saved ? '✓ Сохранено' : 'Сохранить'}</button>
-    </div>
-  );
-}
-
-function Num({ label, v, set }: { label: string; v: number; set: (n: number) => void }) {
-  const [s, setS] = React.useState(String(v));
-  React.useEffect(() => setS(String(v)), [v]);
-  return (
-    <div className="flex-1">
-      {label && <div className="dd-field-label" style={{ marginTop: 0 }}>{label}</div>}
-      <input
-        className="dd-input dd-num" type="number" inputMode="numeric" value={s}
-        onChange={e => { setS(e.target.value); const n = parseFloat(e.target.value); if (!Number.isNaN(n)) set(n); }}
-      />
+      <button className="dd-action strong" disabled={!dirty} onClick={save}>{saved ? '✓ Сохранено' : 'Сохранить'}</button>
     </div>
   );
 }

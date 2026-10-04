@@ -142,25 +142,25 @@ export async function saveProfile(p: Profile) { await db.profiles.put({ ...p, us
 
 const ACT: Record<Profile['activity'], number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
 
-export interface Norma { kcal: number; p: number; f: number; c: number; bmr: number; }
+export interface Norma { kcal: number; p: number; f: number; c: number; bmr: number; tdee: number; adj: number; }
 
 export function calcNorma(pr: Profile): Norma | null {
-  // вес до M1 (лога веса) берём как цель при поддержании, иначе — оценку от роста; M1 уточнит фактом
-  const weight = pr.goalWeightKg && pr.goal === 'maintain' ? pr.goalWeightKg : Math.max(50, Math.round(pr.heightCm - 100));
-  let tdee: number;
-  let bmr: number;
+  const weight = pr.weightKg ?? (pr.goalWeightKg && pr.goal === 'maintain' ? pr.goalWeightKg : undefined);
+  if (weight === undefined && !(pr.formula === 'manual' && pr.manualTdee)) return null; // нет точки отсчёта
+  let tdee: number; let bmr: number;
   if (pr.formula === 'manual' && pr.manualTdee) {
     tdee = pr.manualTdee;
     bmr = Math.round(tdee / ACT[pr.activity]);
   } else {
-    bmr = Math.round(10 * weight + 6.25 * pr.heightCm - 5 * pr.age + (pr.gender === 'male' ? 5 : -161));
+    bmr = Math.round(10 * weight! + 6.25 * pr.heightCm - 5 * pr.age + (pr.gender === 'male' ? 5 : -161));
     tdee = bmr * ACT[pr.activity];
   }
-  let kcal = tdee;
-  if (pr.goal === 'lose') kcal = tdee - Math.min(Math.round(pr.paceKgPerWeek * 7700 / 7), 750);
-  if (pr.goal === 'gain') kcal = tdee + Math.min(Math.round(pr.paceKgPerWeek * 7700 / 7), 500);
+  let adj = 0;
+  if (pr.goal === 'lose') adj = -Math.min(Math.round(pr.paceKgPerWeek * 7700 / 7), 750);
+  if (pr.goal === 'gain') adj = Math.min(Math.round(pr.paceKgPerWeek * 7700 / 7), 500);
+  let kcal = tdee + adj;
   kcal = Math.max(Math.round(kcal / 10) * 10, Math.round(bmr * 1.1));
-  return { kcal, p: Math.round(kcal * 0.25 / 4), f: Math.round(kcal * 0.3 / 9), c: Math.round(kcal * 0.45 / 4), bmr };
+  return { kcal, p: Math.round(kcal * 0.25 / 4), f: Math.round(kcal * 0.3 / 9), c: Math.round(kcal * 0.45 / 4), bmr, tdee: Math.round(tdee), adj };
 }
 
 // ── Экспорт ──

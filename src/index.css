@@ -144,17 +144,38 @@ body {
 @keyframes dd-in-r { from { opacity: .3; transform: translateX(22px); } to { opacity: 1; transform: none; } }
 @keyframes dd-in-l { from { opacity: .3; transform: translateX(-22px); } to { opacity: 1; transform: none; } }
 
-/* ── Таб-бар ── */
-.dd-tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-  display: flex; gap: 4px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
-}
+/* ── Таб-бар: см. блок ниже (плотная панель + автоскрытие) ── */
 .dd-tab {
   flex: 1; text-align: center; padding: 8px 4px; border-radius: 16px; font-size: 11px;
   color: var(--mut); background: transparent; border: none; font-weight: 600; cursor: pointer; font-family: inherit;
 }
 .dd-tab .ti { font-size: 20px; display: block; margin-bottom: 2px; opacity: .85; }
 .dd-tab.on { background: var(--glass); color: var(--acc-fg); }
+
+/* ── Онбординг: экран без прокрутки, закреплённые шапка/подвал ── */
+.dd-onb {
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh;
+  padding: calc(10px + env(safe-area-inset-top)) 18px calc(10px + env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+.dd-onb-head { flex: none; }
+.dd-onb-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.dd-onb-foot { flex: none; }
+
+/* ── Таб-бар: плотная панель + автоскрытие ── */
+.dd-tabbar {
+  position: fixed; left: 12px; right: 12px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 40;
+  display: flex; gap: 4px; padding: 8px 10px;
+  border-radius: 26px;
+  background: var(--bg2);
+  box-shadow: 0 10px 30px rgba(10,14,20,.22), 0 1px 0 rgba(255,255,255,.25) inset;
+  transition: transform .35s cubic-bezier(.22,1,.36,1), opacity .3s;
+}
+.dd-tabbar.hidden { transform: translateY(140%); opacity: 0; pointer-events: none; }
+.dd-tabzone {
+  position: fixed; left: 0; right: 0; bottom: 0; height: calc(34px + env(safe-area-inset-bottom)); z-index: 39;
+}
 
 /* ── Прочее ── */
 .dd-link-btn { background: none; border: none; color: var(--acc-fg); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; padding: 8px 10px; }
@@ -168,3 +189,8 @@ body {
 .dd-cal-cell.sel { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff; font-weight: 700; }
 .dark .dd-cal-cell.sel { color: #101B24; }
 .dd-cal-cell.today { box-shadow: inset 0 0 0 1.5px var(--acc); }
+.dd-cal-cell { position: relative; }
+.dd-cal-dot {
+  position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 4px; border-radius: 50%; background: var(--acc2);
+}

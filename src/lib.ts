@@ -84,7 +84,10 @@ export function humanDate(iso: string): string {
   if (iso === t) return 'Сегодня';
   if (iso === shiftISO(t, -1)) return 'Вчера';
   if (iso === shiftISO(t, 1)) return 'Завтра';
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const thisYear = fromISO(t).getFullYear() === d.getFullYear();
+  return thisYear
+    ? `${d.getDate()} ${MONTHS[d.getMonth()]}, ${WD_SHORT[d.getDay()]}`
+    : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 export function nowHM(): string { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 

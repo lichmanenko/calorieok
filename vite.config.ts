@@ -1,10 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf-8'));
+const sha = process.env.GITHUB_SHA?.slice(0, 7) ?? 'local';
 
 // base = путь GitHub Pages (репо deep-dish)
 export default defineConfig({
   base: '/deep-dish/',
+  define: {
+    __APP_VER__: JSON.stringify(pkg.version),
+    __APP_SHA__: JSON.stringify(sha),
+  },
   plugins: [
     react(),
     VitePWA({

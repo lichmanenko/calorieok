@@ -1,9 +1,9 @@
 // Экран «Сегодня»: кольцо нормы, чипы БЖУ, слоты с записями, навигация по датам
 import React, { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import type { Entry, Slot } from './db';
+import { db, type Entry, type Slot } from './db';
 import { getEntries, getProfile, calcNorma, deleteEntry, saveEntry, track } from './store';
-import { shiftISO, todayISO, humanDate, fromISO, MONTHS, WD_SHORT } from './lib';
+import { shiftISO, todayISO, humanDate, fromISO, MONTHS } from './lib';
 import { Ring, Sheet, useSwipe, Slide, Confirm, cx } from './ui';
 
 export function TodayScreen({ date, setDate, onAdd, showTime }: {
@@ -32,14 +32,19 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
     () => { setDate(shiftISO(date, -1)); setDir(1); },
   );
 
-  const d = fromISO(date);
+  const filledDays = useLiveQuery(async () => {
+    const es = await db.entries.filter(e => !e.deletedAt).toArray();
+    const s = new Set<string>();
+    es.forEach((e: Entry) => s.add(e.date));
+    return s;
+  }, [], new Set<string>());
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-28" {...swipe}>
       <div className="flex items-center justify-between mb-4">
         <button className="dd-link-btn" onClick={() => { setDate(shiftISO(date, -1)); setDir(1); }}>‹</button>
         <button className="dd-link-btn" style={{ fontSize: 17, fontWeight: 700 }} onClick={() => setCalOpen(true)}>
-          {humanDate(date)} <span style={{ color: 'var(--mut)', fontWeight: 500, fontSize: 13 }}>{WD_SHORT[d.getDay()]}, {d.getDate()} {MONTHS[d.getMonth()].slice(0, 3)}</span>
+          {humanDate(date)}
         </button>
         <button className="dd-link-btn" onClick={() => { setDate(shiftISO(date, 1)); setDir(-1); }}>›</button>
       </div>
@@ -94,7 +99,7 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
         <button className="dd-action mt-2" onClick={() => onAdd(null)}>＋ Добавить еду</button>
       </Slide>
 
-      <Calendar open={calOpen} date={date} onClose={() => setCalOpen(false)} onPick={d => { setDate(d); setCalOpen(false); }} />
+      <Calendar open={calOpen} date={date} onClose={() => setCalOpen(false)} onPick={d => { setDate(d); setCalOpen(false); }} filled={filledDays} />
 
       <EntryEditModal entry={editEntry} onClose={() => setEditEntry(null)} />
       <Confirm
@@ -146,7 +151,7 @@ function EntryLine({ e, slot, showTime, onClick }: { e: Entry; slot: Slot; showT
   );
 }
 
-function Calendar({ open, date, onClose, onPick }: { open: boolean; date: string; onClose: () => void; onPick: (d: string) => void }) {
+function Calendar({ open, date, onClose, onPick, filled }: { open: boolean; date: string; onClose: () => void; onPick: (d: string) => void; filled: Set<string> }) {
   const [month, setMonth] = useState(() => { const d = fromISO(date); return new Date(d.getFullYear(), d.getMonth(), 1); });
   React.useEffect(() => { if (open) { const d = fromISO(date); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); } }, [open, date]);
   const grid = useMemo(() => {
@@ -171,6 +176,7 @@ function Calendar({ open, date, onClose, onPick }: { open: boolean; date: string
         {grid.map((iso, i) => iso ? (
           <button key={iso} className={cx('dd-cal-cell', iso === date && 'sel', iso === t && 'today')} onClick={() => onPick(iso)}>
             {parseInt(iso.slice(-2), 10)}
+            {filled.has(iso) && <span className="dd-cal-dot" />}
           </button>
         ) : <div key={`e${i}`} />)}
       </div>
