@@ -163,6 +163,27 @@ body {
 .dd-onb-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .dd-onb-foot { flex: none; }
 
+/* ── Тост обновления ── */
+#dd-update-toast {
+  position: fixed; left: 14px; right: 14px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 70;
+  animation: dd-upd-in .3s ease;
+}
+#dd-update-toast.hide { opacity: 0; transition: opacity .3s; }
+#dd-update-toast .dd-upd-card {
+  border-radius: 22px; padding: 12px 14px;
+  background: var(--bg2);
+  box-shadow: 0 14px 34px rgba(10,14,20,.24);
+}
+#dd-update-toast .dd-upd-text { font-size: 13.5px; font-weight: 600; text-align: center; }
+#dd-update-toast .dd-upd-row { display: flex; gap: 8px; margin-top: 8px; }
+#dd-update-toast button {
+  flex: 1; border: none; border-radius: 14px; padding: 10px; font: inherit; font-size: 13.5px; font-weight: 650; cursor: pointer;
+}
+#dd-update-toast .dd-upd-later { background: var(--tr); color: var(--mut); }
+#dd-update-toast .dd-upd-apply { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: #fff; }
+.dark #dd-update-toast .dd-upd-apply { color: #101B24; }
+@keyframes dd-upd-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
 /* ── Таб-бар: плотная панель + автоскрытие ── */
 .dd-tabbar {
   position: fixed; left: 12px; right: 12px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 40;

@@ -5,7 +5,7 @@ import { todayISO, nowHM, kbjuSuspicious } from './lib';
 // ── Метрики ──
 const SESSION = newId();
 export function track(name: string, props: Record<string, unknown> = {}) {
-  db.events.add({ id: newId(), ts: Date.now(), session: SESSION, name, props: JSON.stringify(props) }).catch(() => {});
+  db.events.add({ id: newId(), ts: Date.now(), session: SESSION, name, props: JSON.stringify({ v: __APP_VER__, ...props }) }).catch(() => {});
 }
 
 // ── Слоты ──

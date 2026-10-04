@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import './update';
 
 // Тема: авто по системе (ручной переключатель — в настройках, M0-вёрстка)
 const mq = window.matchMedia('(prefers-color-scheme: dark)');
