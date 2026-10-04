@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Entry, type Slot } from './db';
 import { getEntries, getProfile, calcNorma, deleteEntry, saveEntry, track } from './store';
-import { shiftISO, todayISO, humanDate, fromISO, MONTHS } from './lib';
+import { shiftISO, todayISO, humanDate, fromISO, MONTHS, fmt } from './lib';
 import { Ring, Sheet, useSwipe, Slide, Confirm, cx } from './ui';
 
 export function TodayScreen({ date, setDate, onAdd, showTime }: {
@@ -57,20 +57,20 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
         )}
         <div className="dd-card p-5 mb-3 flex items-center gap-5">
           <Ring percent={percent}>
-            <div className="text-lg font-extrabold dd-num">{rest}</div>
+            <div className="text-lg font-extrabold dd-num">{fmt(rest)}</div>
             <div className="text-[10px]" style={{ color: 'var(--mut)' }}>осталось</div>
           </Ring>
           <div>
-            <div className="text-xl font-bold dd-num">{Math.round(totals.kcal)} ккал</div>
+            <div className="text-xl font-bold dd-num">{fmt(totals.kcal)} ккал</div>
             <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>из {target} · {percent}%</div>
-            {percent > 100 && <div className="text-xs mt-1" style={{ color: 'var(--warn)' }}>↑ перебор на {Math.round(totals.kcal - target)}</div>}
+            {percent > 100 && <div className="text-xs mt-1" style={{ color: 'var(--warn)' }}>↑ перебор на {fmt(totals.kcal - target)}</div>}
           </div>
         </div>
 
         <div className="flex gap-2 mb-4">
-          <Chip v={`${Math.round(totals.p)} г`} k={`белки${norma ? ` · ${norma.p}` : ''}`} />
-          <Chip v={`${Math.round(totals.f)} г`} k={`жиры${norma ? ` · ${norma.f}` : ''}`} />
-          <Chip v={`${Math.round(totals.c)} г`} k={`углев.${norma ? ` · ${norma.c}` : ''}`} />
+          <Chip v={`${fmt(totals.p)} г`} k={`белки${norma ? ` · ${norma.p}` : ''}`} />
+          <Chip v={`${fmt(totals.f)} г`} k={`жиры${norma ? ` · ${norma.f}` : ''}`} />
+          <Chip v={`${fmt(totals.c)} г`} k={`углев.${norma ? ` · ${norma.c}` : ''}`} />
         </div>
 
         {(slots ?? []).map(slot => {
@@ -83,15 +83,13 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
                   <span>{slot.emoji}</span>{slot.name}
                 </div>
                 <div className="text-xs dd-num" style={{ color: 'var(--mut)' }}>
-                  {es.length ? `${Math.round(sum)} ккал` : 'ничего'}
+                  {es.length ? `${fmt(sum)} ккал` : 'ничего'}
                 </div>
               </div>
               {es.map(e => (
                 <EntryLine key={e.id} e={e} slot={slot} showTime={showTime} onClick={() => setEditEntry(e)} />
               ))}
-              {es.length === 0 && (
-                <div className="text-xs pt-1.5" style={{ color: 'var(--mut)', opacity: .8 }} onClick={() => onAdd(slot)}>＋ добавить</div>
-              )}
+              <div className="dd-slot-add" onClick={() => onAdd(slot)}>＋ добавить</div>
             </div>
           );
         })}
@@ -129,24 +127,27 @@ function Chip({ v, k }: { v: string; k: string }) {
 
 function EntryLine({ e, slot, showTime, onClick }: { e: Entry; slot: Slot; showTime: 'snacks' | 'all'; onClick: () => void }) {
   const [name, setName] = useState<string>('');
+  const [isPc, setIsPc] = useState(false);
   React.useEffect(() => {
     let alive = true;
     (async () => {
-      const { db } = await import('./db');
       const f = e.kind === 'food' ? await db.foods.get(e.refId) : await db.recipes.get(e.refId);
-      if (alive) setName(f?.name ?? '—');
+      if (alive) { setName(f?.name ?? '—'); setIsPc(e.kind === 'food' && (f as import('./db').Food | undefined)?.unit === 'pc'); }
     })();
     return () => { alive = false; };
   }, [e]);
+  const qtyLabel = isPc
+    ? ` · ${(Math.round((e.grams / 100) * 100) / 100).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} шт`
+    : ` · ${fmt(e.grams)} г`;
   const isSnack = slot.defaultTime === null;
   const showT = showTime === 'all' || isSnack;
   return (
     <div className="flex justify-between items-baseline text-[13.5px] py-1 cursor-pointer" onClick={onClick}>
       <span style={{ color: 'var(--mut)' }}>
         {showT && <span className="dd-num" style={{ color: 'var(--acc-fg)' }}>{e.timeEaten} · </span>}
-        {name} · {Math.round(e.grams)} г
+        {name}{qtyLabel}
       </span>
-      <span className="dd-num font-medium">{Math.round(e.snapshot.kcal)}</span>
+      <span className="dd-num font-medium">{fmt(e.snapshot.kcal)}</span>
     </div>
   );
 }

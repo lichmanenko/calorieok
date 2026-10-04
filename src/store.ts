@@ -1,6 +1,6 @@
 // Слой доступа к данным + расчёты нормы + трекер метрик
 import { db, newId, LOCAL_USER, type Entry, type Food, type Profile, type Recipe, type Slot, type KbjuSnapshot } from './db';
-import { todayISO, nowHM, kbjuSuspicious } from './lib';
+import { todayISO, nowHM, kbjuSuspicious, fmt } from './lib';
 
 // ── Метрики ──
 const SESSION = newId();
@@ -28,7 +28,7 @@ export async function addEntry(params: {
   date: string; slot: Slot; kind: 'food' | 'recipe'; refId: string; grams: number;
   per100: KbjuSnapshot; timeEaten?: string;
 }): Promise<Entry> {
-  const k = params.grams / 100;
+  const k = params.grams / 100; // для порционных grams = шт × 100 (условные)
   const entry: Entry = {
     id: newId(), userId: LOCAL_USER, date: params.date,
     timeEaten: params.timeEaten ?? params.slot.defaultTime ?? nowHM(),
@@ -51,26 +51,28 @@ export async function deleteEntry(id: string) {
 
 // ── Продукты/рецепты ──
 export type CatalogItem =
-  | { kind: 'food'; id: string; name: string; sub: string; star: boolean; suspicious: boolean; per100: KbjuSnapshot; food: Food }
-  | { kind: 'recipe'; id: string; name: string; sub: string; star: boolean; suspicious: boolean; per100: KbjuSnapshot; recipe: Recipe };
+  | { kind: 'food'; id: string; name: string; sub: string; star: boolean; suspicious: boolean; per100: KbjuSnapshot; unit: 'g' | 'pc'; food: Food }
+  | { kind: 'recipe'; id: string; name: string; sub: string; star: boolean; suspicious: boolean; per100: KbjuSnapshot; unit: 'g'; recipe: Recipe };
 
 export async function getCatalog(query: string): Promise<CatalogItem[]> {
   const q = query.trim().toLowerCase();
+  const isBarcode = /^\d{8,13}$/.test(q);
   const foods = (await db.foods.filter(f => !f.deletedAt).toArray()).filter(f =>
-    !q || f.name.toLowerCase().includes(q) || (f.brand ?? '').toLowerCase().includes(q));
+    !q || f.name.toLowerCase().includes(q) || (f.brand ?? '').toLowerCase().includes(q)
+    || (isBarcode && (f.barcode ?? '').includes(q)));
   const recipes = (await db.recipes.filter(r => !r.deletedAt).toArray()).filter(r =>
     !q || r.name.toLowerCase().includes(q));
   const items: CatalogItem[] = [
     ...foods.map<CatalogItem>(f => ({
       kind: 'food', id: f.id, name: f.name,
-      sub: f.source === 'system' ? f.category : f.brand ? `${f.brand} · свой` : 'свой продукт',
-      star: !!f.star,
+      sub: f.source === 'system' ? f.category : f.brand ? `${f.brand} · свой` : (f.unit === 'pc' ? 'свой · порционный' : 'свой продукт'),
+      star: !!f.star, unit: f.unit === 'pc' ? 'pc' : 'g',
       suspicious: kbjuSuspicious(f.kcalPer100g, f.pPer100g, f.fPer100g, f.cPer100g, f.name),
       per100: { kcal: f.kcalPer100g, p: f.pPer100g, f: f.fPer100g, c: f.cPer100g },
       food: f,
     })),
     ...recipes.map<CatalogItem>(r => ({
-      kind: 'recipe', id: r.id, name: r.name, sub: 'рецепт', star: !!r.star,
+      kind: 'recipe', id: r.id, name: r.name, sub: 'рецепт', star: !!r.star, unit: 'g',
       suspicious: false,
       per100: { kcal: r.kcalPer100g, p: r.pPer100g, f: r.fPer100g, c: r.cPer100g },
       recipe: r,
@@ -204,3 +206,4 @@ export async function wipeAll() {
 }
 
 export const TODAY = () => todayISO();
+export { fmt };

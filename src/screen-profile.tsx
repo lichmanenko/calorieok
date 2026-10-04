@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getProfile, saveProfile, calcNorma, track } from './store';
 import type { Profile } from './db';
 import { Segmented } from './ui';
+import { fmt } from './lib';
 import { NumField } from './onboarding';
 
 const DEFAULT: Profile = {
@@ -84,8 +85,8 @@ export function ProfileScreen() {
       {norma ? (
         <div className="dd-card p-5 text-center mb-4">
           <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--mut)' }}>Дневная норма</div>
-          <div className="text-3xl font-extrabold dd-num mt-1" style={{ color: 'var(--acc-fg)' }}>{norma.kcal}</div>
-          <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>ккал · Б {norma.p} г · Ж {norma.f} г · У {norma.c} г</div>
+          <div className="text-3xl font-extrabold dd-num mt-1" style={{ color: 'var(--acc-fg)' }}>{fmt(norma.kcal)}</div>
+          <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>ккал · Б {fmt(norma.p)} г · Ж {fmt(norma.f)} г · У {fmt(norma.c)} г</div>
           <div className="text-[10px] mt-2 dd-num" style={{ color: 'var(--mut)' }}>
             расход ≈ {norma.tdee}{norma.adj !== 0 ? ` → ${norma.adj > 0 ? '+' : ''}${norma.adj} по темпу` : ' · без поправки'} · не ниже {Math.round(norma.bmr * 1.1)}
           </div>

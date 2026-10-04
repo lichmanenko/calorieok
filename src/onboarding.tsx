@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { saveProfile, getProfile, calcNorma, track } from './store';
 import type { Profile } from './db';
 import { Segmented } from './ui';
+import { fmt } from './lib';
 
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
@@ -112,7 +113,7 @@ function GoalStep({ onDone, skip }: { onDone: () => void; skip: () => void }) {
 
         {norma ? (
           <div className="dd-card p-3 mt-3 text-center" style={{ background: 'var(--veil)' }}>
-            <div className="dd-num" style={{ color: 'var(--acc-fg)', fontWeight: 800, fontSize: 20 }}>{norma.kcal} ккал</div>
+            <div className="dd-num" style={{ color: 'var(--acc-fg)', fontWeight: 800, fontSize: 20 }}>{fmt(norma.kcal)} ккал</div>
             <div className="text-[11px] mt-1 dd-num" style={{ color: 'var(--mut)' }}>
               расход ≈ {norma.tdee}{norma.adj !== 0 ? ` → ${norma.adj > 0 ? '+' : ''}${norma.adj} по темпу` : ' · без поправки'}
             </div>

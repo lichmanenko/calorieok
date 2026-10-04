@@ -21,21 +21,21 @@ const G = (o: Partial<PaletteTokens>): PaletteTokens => ({
 });
 
 export const PALETTES: Palette[] = [
-  { key: 'graphite', name: 'Графит·сталь',
+  { key: 'graphite', name: 'Графит',
     light: G({}),
-    dark: G({ bg:'#14171B', bg2:'#18202A', bg3:'#1E2A38', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#E9EDF2', mut:'#969DAA', acc:'#7FA8C9', acc2:'#AECBE2', accFg:'#9ABCD9', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(127,168,201,.12)', r1:'rgba(127,168,201,.18)', r2:'rgba(110,155,187,.14)' }) },
+    dark: G({ bg:'#14171B', bg2:'#18202A', bg3:'#1E2A38', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#E9EDF2', mut:'#A9AFBA', acc:'#7FA8C9', acc2:'#AECBE2', accFg:'#9ABCD9', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(127,168,201,.12)', r1:'rgba(127,168,201,.18)', r2:'rgba(110,155,187,.14)' }) },
   { key: 'azure', name: 'Лазурь',
     light: G({ bg:'#F7FAFC', bg2:'#E8F1F7', bg3:'#DCEAF4', tx:'#12212E', mut:'#7C93A3', acc:'#1F7FA8', acc2:'#4FB3DD', accFg:'#1B6E92', tr:'rgba(18,33,46,.07)', veil:'rgba(31,127,168,.10)', r1:'rgba(31,127,168,.12)', r2:'rgba(79,179,221,.10)' }),
-    dark: G({ bg:'#0D1B2A', bg2:'#12283C', bg3:'#17324A', glass:'rgba(255,255,255,.07)', glassStrong:'rgba(255,255,255,.11)', tx:'#E8F0F5', mut:'#8FA6B8', acc:'#4FB3DD', acc2:'#8AD1EE', accFg:'#6FC3E5', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(79,179,221,.14)', r1:'rgba(79,179,221,.20)', r2:'rgba(138,209,238,.14)' }) },
+    dark: G({ bg:'#0D1B2A', bg2:'#12283C', bg3:'#17324A', glass:'rgba(255,255,255,.07)', glassStrong:'rgba(255,255,255,.11)', tx:'#E8F0F5', mut:'#A3B7C6', acc:'#4FB3DD', acc2:'#8AD1EE', accFg:'#6FC3E5', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(79,179,221,.14)', r1:'rgba(79,179,221,.20)', r2:'rgba(138,209,238,.14)' }) },
   { key: 'indigo', name: 'Индиго',
     light: G({ bg:'#F8F8FC', bg2:'#EFEFF8', bg3:'#E4E4F2', tx:'#1B1D2C', mut:'#8B8FA8', acc:'#4F55C9', acc2:'#7B80E0', accFg:'#4348AC', tr:'rgba(27,29,44,.07)', veil:'rgba(79,85,201,.09)', r1:'rgba(79,85,201,.11)', r2:'rgba(123,128,224,.10)' }),
-    dark: G({ bg:'#131419', bg2:'#181A26', bg3:'#1F2233', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#EBECF3', mut:'#969AB0', acc:'#8B90F0', acc2:'#B4B8F7', accFg:'#A3A8F3', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(139,144,240,.12)', r1:'rgba(139,144,240,.18)', r2:'rgba(180,184,247,.13)' }) },
+    dark: G({ bg:'#131419', bg2:'#181A26', bg3:'#1F2233', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#EBECF3', mut:'#A9ADC2', acc:'#8B90F0', acc2:'#B4B8F7', accFg:'#A3A8F3', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(139,144,240,.12)', r1:'rgba(139,144,240,.18)', r2:'rgba(180,184,247,.13)' }) },
   { key: 'lingon', name: 'Брусника',
     light: G({ bg:'#FAF7F8', bg2:'#F6EEF1', bg3:'#EFE2E8', tx:'#271C21', mut:'#9E8D94', acc:'#B23A5B', acc2:'#D5677F', accFg:'#9C2F4D', tr:'rgba(39,28,33,.07)', veil:'rgba(178,58,91,.09)', r1:'rgba(178,58,91,.11)', r2:'rgba(213,103,127,.09)' }),
-    dark: G({ bg:'#171114', bg2:'#1E161B', bg3:'#281C23', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#F2EAED', mut:'#A9959D', acc:'#E27A97', acc2:'#F2A9BC', accFg:'#EDA2B4', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(226,122,151,.12)', r1:'rgba(226,122,151,.18)', r2:'rgba(242,169,188,.13)' }) },
+    dark: G({ bg:'#171114', bg2:'#1E161B', bg3:'#281C23', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#F2EAED', mut:'#BBA9B0', acc:'#E27A97', acc2:'#F2A9BC', accFg:'#EDA2B4', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(226,122,151,.12)', r1:'rgba(226,122,151,.18)', r2:'rgba(242,169,188,.13)' }) },
   { key: 'matcha', name: 'Матча',
     light: G({ bg:'#F8FBF8', bg2:'#EDF6EC', bg3:'#DFEEE0', tx:'#182420', mut:'#7E9386', acc:'#2E9B62', acc2:'#55BE85', accFg:'#25824F', tr:'rgba(24,36,32,.07)', veil:'rgba(46,155,98,.10)', r1:'rgba(46,155,98,.12)', r2:'rgba(85,190,133,.10)' }),
-    dark: G({ bg:'#0E1511', bg2:'#121E17', bg3:'#182720', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#E8EFEA', mut:'#8FA396', acc:'#63C78F', acc2:'#9FE8BE', accFg:'#8FDCAC', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(99,199,143,.12)', r1:'rgba(99,199,143,.18)', r2:'rgba(159,232,190,.13)' }) },
+    dark: G({ bg:'#0E1511', bg2:'#121E17', bg3:'#182720', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#E8EFEA', mut:'#A3B5A8', acc:'#63C78F', acc2:'#9FE8BE', accFg:'#8FDCAC', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(99,199,143,.12)', r1:'rgba(99,199,143,.18)', r2:'rgba(159,232,190,.13)' }) },
 ];
 
 // ── Радиальные пресеты по экранам (интенсивность ×1) ──
@@ -105,5 +105,7 @@ export function kbjuSuspicious(kcal: number, p: number, f: number, c: number, na
   return Math.abs(est - kcal) / kcal > 0.25;
 }
 
-export const fmt = (n: number) => n.toLocaleString('ru-RU');
+export const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU');
+/** дробное количество порций: 0,5 / 1 / 1,25 */
+export const fmtQty = (n: number) => (Math.round(n * 100) / 100).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 export const rnd = (n: number) => Math.round(n);

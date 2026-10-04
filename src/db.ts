@@ -8,6 +8,8 @@ export type FoodSource = 'system' | 'custom' | 'off' | 'fork';
 export interface Food {
   id: string; name: string; brand?: string; category: string;
   kcalPer100g: number; pPer100g: number; fPer100g: number; cPer100g: number;
+  /** 'pc' — порционный продукт: КБЖУ указаны НА 1 ПОРЦИЮ (в per100-полях), ввод в штуках (дробно) */
+  unit?: 'g' | 'pc';
   portionG?: number; portionLabel?: string; barcode?: string;
   source: FoodSource; ownerId: string; isPublic: boolean; star?: boolean;
   createdAt: number; updatedAt: number; deletedAt: number | null;
