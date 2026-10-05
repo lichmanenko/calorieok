@@ -5,12 +5,13 @@ import { db } from './db';
 import type { Slot } from './db';
 import { PALETTES, type DeviceSettings, todayISO } from './lib';
 import { exportJSON, exportCSV, download, wipeAll, track } from './store';
-import { Segmented, Confirm, cx } from './ui';
+import { Segmented, Confirm, Modal, cx } from './ui';
 
 export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
   settings: DeviceSettings; setSettings: (s: DeviceSettings) => void; onRestartOnboarding: () => void;
 }) {
   const [confirmWipe, setConfirmWipe] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const slots = useLiveQuery(async () =>
     (await db.slots.filter(s => !s.deletedAt).toArray()).sort((a, b) => a.sortOrder - b.sortOrder), [], [] as Slot[]);
 
@@ -41,10 +42,12 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
       <div className="dd-card px-4 py-1">
         <div className="st-row">
           <div>
-            <div className="text-sm font-medium">🧮 Калории из БЖУ</div>
-            <div className="text-[11px]" style={{ color: 'var(--mut)' }}>при создании продуктов калории считаются из белков-жиров-углеводов</div>
+            <div className="text-sm font-medium">🧮 Авторасчёт калорий</div>
           </div>
-          <button className={cx('dd-sw', settings.calcKcal && 'on')} onClick={() => setSettings({ ...settings, calcKcal: !settings.calcKcal })} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button className="dd-info" onClick={() => setInfoOpen(true)}>ⓘ</button>
+            <button className={cx('dd-sw', settings.calcKcal && 'on')} onClick={() => setSettings({ ...settings, calcKcal: !settings.calcKcal })} />
+          </div>
         </div>
       </div>
 
@@ -76,6 +79,16 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
       <p className="text-[10px] mt-6 text-center" style={{ color: 'var(--mut)' }}>
         Deep Dish · v{__APP_VER__} · сборка {__APP_SHA__} · работает офлайн · синхронизация в M2
       </p>
+
+      <Modal open={infoOpen} onClose={() => setInfoOpen(false)}>
+        <p className="dd-modal-text">
+          Когда включено: заполняешь белки, жиры и углеводы — калории считаются сами (1 г белка и углеводов — 4 ккал, 1 г жира — 9 ккал).
+          Поле калорий всегда можно перебить своими — тогда, если цифры не сойдутся, у блюда появится пометка ⚠️.
+        </p>
+        <div className="dd-modal-row">
+          <button className="dd-action strong" onClick={() => setInfoOpen(false)}>Понятно</button>
+        </div>
+      </Modal>
 
       <Confirm open={confirmWipe} text="Точно удалить ВСЁ? Дневник, каталог и профиль исчезнут безвозвратно."
         okLabel="Удалить всё" onCancel={() => setConfirmWipe(false)}

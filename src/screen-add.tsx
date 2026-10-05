@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Slot } from './db';
 import { getCatalog, getRecent, lastGrams, toggleStar, saveCustomFood, saveRecipe, addEntry, track, type CatalogItem } from './store';
-import { nowHM, kbjuSuspicious, fmt, loadSettings } from './lib';
-import { Sheet, Modal, Confirm, cx } from './ui';
+import { nowHM, kbjuSuspicious, fmt, loadSettings, guessCategory, lookupBarcode } from './lib';
+import { Sheet, Modal, Confirm, Collapse, cx } from './ui';
 
 interface AddScreenProps {
   date: string;
@@ -21,7 +21,6 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
   const [creatingRecipe, setCreatingRecipe] = useState(false);
   const [managing, setManaging] = useState<CatalogItem | null>(null);
   const [explain, setExplain] = useState<string | null>(null);
-  const [showAllStarred, setShowAllStarred] = useState(false);
 
   const catalog = useLiveQuery(() => getCatalog(q), [q], [] as CatalogItem[]);
   const recentKeys = useLiveQuery(() => getRecent(10), [], [] as Array<{ kind: 'food' | 'recipe'; refId: string }>);
@@ -35,6 +34,10 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
     const star = (catalog ?? []).filter(i => i.star);
     return { recentItems: rec, starred: star };
   }, [recentKeys, catalog]);
+
+  const starredMatches = useMemo(
+    () => (searching ? starred.filter(i => i.name.toLowerCase().includes(ql)) : []),
+    [searching, starred, ql]);
 
   // При поиске: недавние совпадения отдельно, остальная выдача — отдельно
   const recentMatches = useMemo(
@@ -63,8 +66,6 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
     setEditing({ item, presetGrams: defaultGramsFor(item), presetTime: slot?.defaultTime ?? nowHM() });
   }
 
-  const starredShown = showAllStarred ? starred : starred.slice(0, 5);
-
   return (
     <div className="min-h-screen pb-28">
       {/* Sticky: панель кнопок + поиск */}
@@ -87,40 +88,28 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
         {searching ? (
           <>
             {recentMatches.length > 0 && (
-              <>
-                <div className="dd-allhead">🕘 Из недавних — ты это уже ел</div>
-                {recentMatches.map(i => <ItemRow key={`rm-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={setExplain} />)}
-              </>
+              <Section title="🕘 Из недавних" id="srch-recent" defaultOpen>
+                {recentMatches.map(i => <ItemRow key={`rm-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={() => setExplain('warn')} />)}
+              </Section>
             )}
-            <div className="dd-allhead">⌕ Найдено</div>
-            {searchRest.length === 0 && recentMatches.length === 0 && (
-              <p className="text-sm mt-4 text-center" style={{ color: 'var(--mut)' }}>
-                Ничего не нашлось. Создай свой продукт — кнопка「＋ продукт」
-              </p>
+            {starredMatches.length > 0 && (
+              <Section title="⭐ Из проверенных" id="srch-starred" defaultOpen>
+                {starredMatches.map(i => <ItemRow key={`ss-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={() => setExplain('warn')} />)}
+              </Section>
             )}
-            {searchRest.map(i => <ItemRow key={`s-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={setExplain} />)}
+            <Section title="⌕ Найдено" id="srch-found" defaultOpen>
+              {searchRest.length === 0 && recentMatches.length === 0 && starredMatches.length === 0 && (
+                <p className="text-sm mt-4 text-center" style={{ color: 'var(--mut)' }}>
+                  Ничего не нашлось. Создай свой продукт — кнопка「＋ продукт」
+                </p>
+              )}
+              {searchRest.map(i => <ItemRow key={`s-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={() => setExplain('warn')} />)}
+            </Section>
           </>
         ) : (
           <>
-            {recentItems.length > 0 && (
-              <>
-                <div className="dd-allhead">🕘 Недавние</div>
-                {recentItems.slice(0, 5).map(i => <ItemRow key={`r-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={setExplain} />)}
-              </>
-            )}
-            {starred.length > 0 && (
-              <>
-                <div className="dd-allhead">⭐ Проверенные</div>
-                {starredShown.map(i => <ItemRow key={`st-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={setExplain} />)}
-                {starred.length > 5 && (
-                  <button className="dd-link-btn" onClick={() => setShowAllStarred(!showAllStarred)}>
-                    {showAllStarred ? 'свернуть' : `ещё ${starred.length - 5}`}
-                  </button>
-                )}
-              </>
-            )}
             <div className="dd-allhead">Все продукты</div>
-            {allItems.map(i => <ItemRow key={`a-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={setExplain} />)}
+            {allItems.map(i => <ItemRow key={`a-${i.kind}:${i.id}`} item={i} onOpen={() => openItem(i)} onQuick={() => quickAdd(i)} onStar={() => toggleStar(i)} onManage={setManaging} onWarn={() => setExplain('warn')} />)}
           </>
         )}
       </div>
@@ -148,6 +137,22 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
   );
 }
 
+const collapseState: Record<string, boolean> = JSON.parse(localStorage.getItem('dd-collapse2') ?? '{}');
+function persistCollapse() { localStorage.setItem('dd-collapse2', JSON.stringify(collapseState)); }
+
+function Section({ title, id, defaultOpen, children }: { title: string; id: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(collapseState[id] ?? defaultOpen ?? true);
+  return (
+    <Collapse
+      title={title}
+      open={open}
+      onToggle={() => { collapseState[id] = !open; persistCollapse(); setOpen(!open); }}
+    >
+      {children}
+    </Collapse>
+  );
+}
+
 function defaultGramsFor(i: CatalogItem): number {
   if (i.kind === 'food' && i.unit === 'pc') return 100; // 1 порция = 100 условных г
   return i.kind === 'food' ? (i.food.portionG ?? 100) : 150;
@@ -159,6 +164,7 @@ function ItemRow({ item, onOpen, onQuick, onStar, onManage, onWarn }: {
 }) {
   const perLabel = item.unit === 'pc' ? 'ккал/порц.' : 'ккал/100 г';
   const mine = item.kind === 'recipe' || item.food.source !== 'system';
+  const brand = item.kind === 'food' ? (item.food as { brand?: string }).brand : undefined;
   return (
     <div className="dd-item" onClick={onOpen} role="button">
       <div className="min-w-0 flex-1">
@@ -167,7 +173,8 @@ function ItemRow({ item, onOpen, onQuick, onStar, onManage, onWarn }: {
           <span className="truncate">{item.name}</span>
           {item.suspicious && <span className="dd-warnmark cursor-pointer" onClick={e => { e.stopPropagation(); onWarn('warn'); }}>⚠️</span>}
         </div>
-        <div className="sub">{item.sub} · {fmt(item.per100.kcal)} {perLabel}</div>
+        {brand && <div className="sub" style={{ marginTop: 1, color: 'var(--acc-fg)', opacity: .85 }}>{brand}</div>}
+        <div className="sub">{item.kind === 'food' ? (item.food as { category?: string }).category ?? '' : 'Рецепты'} · {fmt(item.per100.kcal)} {perLabel}</div>
       </div>
       <div className="kc dd-num">{fmt(item.per100.p)}/{fmt(item.per100.f)}/{fmt(item.per100.c)}</div>
       {mine && <button className="dd-more" title="Изменить или удалить" onClick={e => { e.stopPropagation(); onManage(item); }}>⋯</button>}
@@ -270,18 +277,19 @@ function EntryEdit({ date, slot, open, item, presetGrams, presetTime, onClose }:
 // ── Управление своим блюдом: правка продукта / удаление продукта или рецепта ──
 function ManageItem({ item, onClose }: { item: CatalogItem | null; onClose: () => void }) {
   const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
   const [cat, setCat] = useState('');
   const [unit, setUnit] = useState<'g' | 'pc'>('g');
   const [kcal, setKcal] = useState(''); const [p, setP] = useState(''); const [f, setF] = useState(''); const [c, setC] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
   const cats = useLiveQuery(async () => [...new Set((await db.foods.toArray()).map(x => x.category))].sort(), [], [] as string[]);
-  const autoKcal = loadSettings().calcKcal;
 
   useEffect(() => {
     if (!item) return;
     setName(item.name);
     setCat(item.kind === 'food' ? item.food.category : '');
     if (item.kind === 'food') {
+      setBrand(item.food.brand ?? '');
       setUnit(item.unit);
       setKcal(String(item.food.kcalPer100g)); setP(String(item.food.pPer100g));
       setF(String(item.food.fPer100g)); setC(String(item.food.cPer100g));
@@ -292,15 +300,16 @@ function ManageItem({ item, onClose }: { item: CatalogItem | null; onClose: () =
   if (!item) return null;
   const nums = [kcal, p, f, c].map(x => parseFloat(x.replace(',', '.')) || 0);
   const calcK = Math.round(nums[1] * 4 + nums[2] * 9 + nums[3] * 4);
-  const effKcal = autoKcal ? calcK : nums[0];
-  const valid = name.trim() !== '' && nums[1] >= 0 && nums[2] >= 0 && nums[3] >= 0
-    && p !== '' && f !== '' && c !== '' && (autoKcal || kcal !== '');
+  const bjzuFull = p !== '' && f !== '' && c !== '';
+  const valid = item.kind !== 'food' || (name.trim() !== '' && bjzuFull && kcal !== '' && parseFloat(kcal) > 0);
+  const suspicious = item.kind === 'food' && bjzuFull && kcal !== '' && nums[1] + nums[2] + nums[3] > 0
+    && kbjuSuspicious(parseFloat(kcal) || 0, nums[1], nums[2], nums[3], name);
 
   async function save() {
     if (!valid || item?.kind !== 'food') return;
     await db.foods.update(item.id, {
-      name: name.trim(), category: cat || 'Свои продукты', unit,
-      kcalPer100g: effKcal, pPer100g: nums[1], fPer100g: nums[2], cPer100g: nums[3],
+      name: name.trim(), brand: brand.trim() || undefined, category: cat || 'Свои продукты', unit,
+      kcalPer100g: parseFloat(kcal) || 0, pPer100g: nums[1], fPer100g: nums[2], cPer100g: nums[3],
       updatedAt: Date.now(),
     });
     track('food_edited');
@@ -331,20 +340,23 @@ function ManageItem({ item, onClose }: { item: CatalogItem | null; onClose: () =
       ) : (
         <>
           <input className="dd-input" placeholder="Название" value={name} onChange={e => setName(e.target.value)} />
+          <div className="dd-field-label">Производитель</div>
+          <input className="dd-input" placeholder="не указан" value={brand} onChange={e => setBrand(e.target.value)} />
           <div className="dd-field-label">Единица учёта</div>
           <div className="dd-seg">
             <button className={unit === 'g' ? 'on' : ''} onClick={() => setUnit('g')}>граммы</button>
             <button className={unit === 'pc' ? 'on' : ''} onClick={() => setUnit('pc')}>порции (шт)</button>
           </div>
-          <div className="dd-field-label">КБЖУ {unit === 'pc' ? 'на 1 порцию' : 'на 100 г'}{autoKcal ? ' — калории считаются из БЖУ' : ''}</div>
+          <div className="dd-field-label">КБЖУ {unit === 'pc' ? 'на 1 порцию' : 'на 100 г'}</div>
           <div className="dd-input-row">
             <NumCell label="Б" v={p} set={setP} />
             <NumCell label="Ж" v={f} set={setF} />
             <NumCell label="У" v={c} set={setC} />
-            {autoKcal
-              ? <NumCell label="ккал" v={String(calcK)} set={() => {}} />
-              : <NumCell label="ккал" v={kcal} set={setKcal} />}
+            <NumCell label="ккал" v={kcal} set={setKcal} />
           </div>
+          {suspicious
+            ? <div className="text-[11px] mt-1" style={{ color: 'var(--warn)' }}>⚠️ калории ({fmt(parseFloat(kcal) || 0)}) не сходятся с БЖУ (расчёт {fmt(calcK)}) — блюдо будет с пометкой</div>
+            : bjzuFull && <div className="text-[11px] mt-1" style={{ color: 'var(--mut)' }}>из БЖУ получается {fmt(calcK)} ккал — если введёшь другое, блюдо получит ⚠️</div>}
           <div className="dd-field-label">Категория</div>
           <select className="dd-input dd-select" value={cat} onChange={e => setCat(e.target.value)}>
             <option value="Свои продукты">Свои продукты</option>
@@ -366,41 +378,81 @@ function ManageItem({ item, onClose }: { item: CatalogItem | null; onClose: () =
 // ── Создание своего продукта: БЖУ → калории (авто-режим), категория, EAN-13 ──
 function CreateFood({ open, initialName, onClose }: { open: boolean; initialName: string; onClose: () => void }) {
   const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
   const [unit, setUnit] = useState<'g' | 'pc'>('g');
   const [kcal, setKcal] = useState(''); const [p, setP] = useState(''); const [f, setF] = useState(''); const [c, setC] = useState('');
   const [ean, setEan] = useState('');
   const [cat, setCat] = useState('Свои продукты');
+  const [catTouched, setCatTouched] = useState(false);
+  const [kcalTouched, setKcalTouched] = useState(false);
+  type OffState = null | 'loading' | 'ok' | { error: string };
+  const [offState, setOffState] = useState<OffState>(null);
   const cats = useLiveQuery(async () => [...new Set((await db.foods.toArray()).map(x => x.category))].sort(), [], [] as string[]);
   const autoKcal = loadSettings().calcKcal;
 
-  useEffect(() => { if (open) setName(initialName); }, [open, initialName]);
+  useEffect(() => {
+    if (!open) return;
+    setName(initialName);
+    const g = guessCategory(initialName);
+    setCat(g ?? 'Свои продукты'); setCatTouched(false);
+    setKcalTouched(false); setOffState(null);
+  }, [open, initialName]);
 
   const nums = [kcal, p, f, c].map(x => parseFloat(x.replace(',', '.')) || 0);
   const perLabel = unit === 'pc' ? 'на 1 порцию' : 'на 100 г';
-  const calcK = Math.round(nums[1] * 4 + nums[2] * 9 + nums[3] * 4);
-  const effKcal = autoKcal ? calcK : nums[0];
   const bjzuFull = p !== '' && f !== '' && c !== '';
-  const kcalFull = autoKcal || kcal !== '';
-  const valid = name.trim() !== '' && bjzuFull && kcalFull && effKcal > 0
+  const calcK = Math.round(nums[1] * 4 + nums[2] * 9 + nums[3] * 4);
+  // авторасчёт: калории редактируемы, но предзаполнены расчётом, пока пользователь не ввёл свои
+  useEffect(() => {
+    if (autoKcal && bjzuFull && !kcalTouched) setKcal(String(calcK));
+  }, [autoKcal, bjzuFull, kcalTouched, calcK]);
+  const kcalFull = kcal !== '';
+  const valid = name.trim() !== '' && bjzuFull && kcalFull && parseFloat(kcal) > 0
     && (ean === '' || /^\d{12,13}$/.test(ean));
-  const suspicious = open && name && bjzuFull && kcalFull && !autoKcal
-    && kbjuSuspicious(nums[0], nums[1], nums[2], nums[3], name);
+  const suspicious = open && name && bjzuFull && kcalFull
+    && kbjuSuspicious(parseFloat(kcal) || 0, nums[1], nums[2], nums[3], name);
+
+  // автокатегория по названию, пока пользователь не выбрал сам
+  useEffect(() => {
+    if (catTouched || !name) return;
+    const g = guessCategory(name);
+    if (g) setCat(g);
+  }, [name, catTouched]);
+
+  async function lookup() {
+    if (!/^\d{12,13}$/.test(ean)) return;
+    setOffState('loading');
+    const r = await lookupBarcode(ean);
+    if ('error' in r) { setOffState({ error: r.error }); track('off_lookup', { ok: false }); return; }
+    if (r.name) setName(r.name);
+    if (r.brand) setBrand(r.brand);
+    setP(String(r.p)); setF(String(r.f)); setC(String(r.c));
+    setKcalTouched(false); // пусть предзаполнится авторасчётом
+    setKcal(String(r.kcal));
+    const g = guessCategory(r.name);
+    if (g && !catTouched) setCat(g);
+    setOffState('ok');
+    track('off_lookup', { ok: true });
+  }
 
   async function save() {
     if (!valid) return;
     await saveCustomFood({
-      name: name.trim(), category: cat, unit,
-      kcalPer100g: effKcal, pPer100g: nums[1], fPer100g: nums[2], cPer100g: nums[3],
+      name: name.trim(), brand: brand.trim() || undefined, category: cat, unit,
+      kcalPer100g: parseFloat(kcal) || 0, pPer100g: nums[1], fPer100g: nums[2], cPer100g: nums[3],
       barcode: ean || undefined,
     });
     onClose(); reset();
   }
-  function reset() { setName(''); setUnit('g'); setKcal(''); setP(''); setF(''); setC(''); setEan(''); setCat('Свои продукты'); }
+  function reset() { setName(''); setBrand(''); setUnit('g'); setKcal(''); setP(''); setF(''); setC(''); setEan(''); setCat('Свои продукты'); setCatTouched(false); setKcalTouched(false); setOffState(null); }
 
   return (
     <Sheet open={open} onClose={() => { onClose(); reset(); }} title="Свой продукт"
-      note="Сначала белки-жиры-углеводы, калории посчитаются сами. Учёт — в граммах или порциями.">
+      note="Сначала белки-жиры-углеводы — калории посчитаются сами (можно перебить). Учёт — в граммах или порциями.">
       <input className="dd-input" placeholder="Название (напр. Кофе латте)" value={name} onChange={e => setName(e.target.value)} />
+
+      <div className="dd-field-label">Производитель (необязательно)</div>
+      <input className="dd-input" placeholder="напр. Простоквашино" value={brand} onChange={e => setBrand(e.target.value)} />
 
       <div className="dd-field-label">Единица учёта</div>
       <div className="dd-seg">
@@ -408,28 +460,35 @@ function CreateFood({ open, initialName, onClose }: { open: boolean; initialName
         <button className={unit === 'pc' ? 'on' : ''} onClick={() => setUnit('pc')}>порции (шт)</button>
       </div>
 
-      <div className="dd-field-label">КБЖУ {perLabel}{autoKcal ? ' — калории считаются из БЖУ' : ''}</div>
+      <div className="dd-field-label">КБЖУ {perLabel}</div>
       <div className="dd-input-row">
         <NumCell label="Б" v={p} set={setP} />
         <NumCell label="Ж" v={f} set={setF} />
         <NumCell label="У" v={c} set={setC} />
-        {autoKcal
-          ? <NumCell label="ккал" v={bjzuFull ? String(calcK) : ''} set={() => {}} locked />
-          : <NumCell label="ккал" v={kcal} set={setKcal} />}
+        <NumCell label="ккал" v={kcal} set={s => { setKcalTouched(true); setKcal(s); }} />
       </div>
-      {!bjzuFull && <div className="text-[11px] mt-1" style={{ color: 'var(--mut)' }}>Заполни Б, Ж и У явно — нули тоже вводятся. Пока не заполнено, сохранить нельзя.</div>}
+      {!bjzuFull && <div className="text-[11px] mt-1" style={{ color: 'var(--mut)' }}>Заполни Б, Ж и У явно — нули тоже вводятся.</div>}
+      {autoKcal && !kcalTouched && <div className="text-[11px] mt-1" style={{ color: 'var(--mut)' }}>калории рассчитаны из БЖУ — введёшь свои, появится пометка ⚠️ если не сойдётся</div>}
 
-      <div className="dd-field-label">Категория</div>
-      <select className="dd-input dd-select" value={cat} onChange={e => setCat(e.target.value)}>
+      <div className="dd-field-label">Категория{!catTouched && guessCategory(name) ? ' — подобрана по названию' : ''}</div>
+      <select className="dd-input dd-select" value={cat} onChange={e => { setCatTouched(true); setCat(e.target.value); }}>
         <option value="Свои продукты">Свои продукты</option>
         {(cats ?? []).map(x => <option key={x} value={x}>{x}</option>)}
       </select>
 
-      <div className="dd-field-label">Штрихкод EAN-13 (необязательно)</div>
-      <input className="dd-input dd-num" type="text" inputMode="numeric" placeholder="напр. 4680036912345"
-        value={ean} onChange={e => setEan(e.target.value.replace(/\D/g, '').slice(0, 13))} />
+      <div className="dd-field-label">Штрихкод EAN-13 — найти КБЖУ в открытой базе</div>
+      <div className="dd-input-row">
+        <input className="dd-input dd-num" type="text" inputMode="numeric" placeholder="напр. 4680036912345"
+          value={ean} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 13); setEan(v); setOffState(null); }} />
+        <button className="dd-action" style={{ flex: 'none', width: 92 }} disabled={!/^\d{12,13}$/.test(ean) || offState === 'loading'} onClick={lookup}>
+          {offState === 'loading' ? '…' : '⤓ найти'}
+        </button>
+      </div>
+      {offState === 'loading' && <div className="text-[11px] mt-1" style={{ color: 'var(--mut)' }}>ищу в Open Food Facts…</div>}
+      {offState && offState !== 'loading' && offState !== 'ok' && 'error' in offState ? <div className="text-[11px] mt-1" style={{ color: 'var(--warn)' }}>{offState.error} — введу руками</div> : null}
+      {offState === 'ok' && <div className="text-[11px] mt-1" style={{ color: 'var(--ok)' }}>нашёл — проверь и поправь при нужде</div>}
 
-      {suspicious && <div className="dd-card p-3 mt-3 text-xs" style={{ color: 'var(--warn)' }}>⚠️ Калории не сходятся с БЖУ (расхождение &gt;25%). Проверь цифры.</div>}
+      {suspicious && <div className="dd-card p-3 mt-3 text-xs" style={{ color: 'var(--warn)' }}>⚠️ Калории не сходятся с БЖУ (расхождение &gt;25%). Проверь цифры — или сохрани, блюдо получит пометку ⚠️.</div>}
       <div className="flex gap-2 mt-4">
         <button className="dd-action" onClick={() => { onClose(); reset(); }}>Отмена</button>
         <button className="dd-action strong" disabled={!valid} onClick={save}>Сохранить</button>

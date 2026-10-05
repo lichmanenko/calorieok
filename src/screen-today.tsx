@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Entry, type Slot } from './db';
 import { getEntries, getProfile, calcNorma, deleteEntry, saveEntry, track } from './store';
-import { shiftISO, todayISO, humanDate, fromISO, MONTHS, fmt } from './lib';
+import { shiftISO, todayISO, humanDate, headDateSub, fromISO, MONTHS_NOM, fmt } from './lib';
 import { Ring, Sheet, useSwipe, Slide, Confirm, cx, Modal } from './ui';
 
 export function TodayScreen({ date, setDate, onAdd, showTime }: {
@@ -42,12 +42,22 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-28" {...swipe}>
-      <div className="flex items-center justify-between mb-4">
-        <button className="dd-link-btn" onClick={() => { setDate(shiftISO(date, -1)); setDir(1); }}>‹</button>
-        <button className="dd-link-btn" style={{ fontSize: 17, fontWeight: 700 }} onClick={() => setCalOpen(true)}>
-          {humanDate(date)}
-        </button>
-        <button className="dd-link-btn" onClick={() => { setDate(shiftISO(date, 1)); setDir(-1); }}>›</button>
+      <div className="flex items-center justify-between mb-4 px-1">
+        <div className="flex items-center">
+          <button className="dd-arrow" onClick={() => { setDate(shiftISO(date, -1)); setDir(1); }} aria-label="Предыдущий день">‹</button>
+          <button onClick={() => setCalOpen(true)} className="text-left px-0.5">
+            <div className="text-[18px] font-bold tracking-tight leading-tight">{humanDate(date)}</div>
+            {headDateSub(date) && <div className="text-[10.5px]" style={{ color: 'var(--mut)' }}>{headDateSub(date)}</div>}
+          </button>
+          <button className="dd-arrow" onClick={() => { setDate(shiftISO(date, 1)); setDir(-1); }} aria-label="Следующий день">›</button>
+        </div>
+        <div className="flex items-center gap-1.5" style={{ color: 'var(--acc-fg)' }}>
+          <svg width="20" height="20" viewBox="0 0 96 96" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx="48" cy="48" r="38" fill="none" stroke="var(--tr)" strokeWidth="12" />
+            <circle cx="48" cy="48" r="38" fill="none" stroke="var(--acc)" strokeWidth="12" strokeLinecap="round" strokeDasharray="172 239" />
+          </svg>
+          <span className="text-[16px] font-bold tracking-tight" style={{ color: 'var(--tx)' }}>deep dish</span>
+        </div>
       </div>
 
       <Slide dir={dir}>
@@ -197,7 +207,7 @@ function Calendar({ open, date, onClose, onPick, filled }: { open: boolean; date
   const t = todayISO();
 
   return (
-    <Sheet open={open} onClose={onClose} title={`${MONTHS[month.getMonth()]} ${month.getFullYear()}`}>
+    <Sheet open={open} onClose={onClose} title={`${MONTHS_NOM[month.getMonth()]} ${month.getFullYear()}`}>
       <div className="grid grid-cols-7 gap-1 text-center text-[11px] mb-1" style={{ color: 'var(--mut)' }}>
         {['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map(w => <div key={w}>{w}</div>)}
       </div>

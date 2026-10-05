@@ -37,13 +37,47 @@ export function Ring({ percent, size = 96, stroke = 10, children }: { percent: n
 export function Sheet({ open, onClose, children, title, note }: {
   open: boolean; onClose: () => void; children: React.ReactNode; title?: string; note?: string;
 }) {
+  // свайп вниз за шапку шита — закрытие (нативный жест iOS): зона = ручка + заголовок
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ y0: number; t0: number; dy: number; v: number; active: boolean } | null>(null);
+  const onDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    drag.current = { y0: e.clientY, t0: performance.now(), dy: 0, v: 0, active: false };
+  };
+  const onMove = (e: React.PointerEvent) => {
+    const d = drag.current; if (!d) return;
+    const dy = e.clientY - d.y0;
+    if (!d.active) {
+      if (dy < -6) { drag.current = null; return; } // движение вверх — отдаём жест прокрутке
+      if (dy > 8) {
+        d.active = true;
+        try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* указатель уже захвачен */ }
+        sheetRef.current?.classList.add('dragging');
+      } else return;
+    }
+    d.dy = Math.max(0, dy);
+    d.v = d.dy / Math.max(1, performance.now() - d.t0);
+    if (sheetRef.current) sheetRef.current.style.transform = `translateY(${Math.round(d.dy * 0.96)}px)`;
+  };
+  const onUp = () => {
+    const d = drag.current; if (!d) return;
+    drag.current = null;
+    if (sheetRef.current) sheetRef.current.style.transform = '';
+    sheetRef.current?.classList.remove('dragging');
+    if (d.active && (d.dy > 70 || d.v > 0.55)) onClose();
+  };
   return (
     <>
       <div className={cx('dd-sheet-bg', open && 'show')} onClick={onClose} />
-      <div className={cx('dd-sheet', open && 'show')}>
-        <div className="dd-grab" />
-        {title && <h3 className="dd-sheet-title">{title}</h3>}
-        {note && <div className="dd-sheet-note">{note}</div>}
+      <div className={cx('dd-sheet', open && 'show')} ref={sheetRef}>
+        <div
+          className="dd-sheet-head"
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+        >
+          <div className="dd-grab" />
+          {title && <h3 className="dd-sheet-title">{title}</h3>}
+          {note && <div className="dd-sheet-note">{note}</div>}
+        </div>
         {children}
       </div>
     </>

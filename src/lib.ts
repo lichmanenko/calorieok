@@ -1,7 +1,7 @@
 // Утилиты: даты, КБЖУ-эвристика, идентификаторы, палитры/тема, метрики-трекер
 
 export interface PaletteTokens {
-  bg: string; bg2: string; bg3: string;
+  bg: string; bg2: string; bg3: string; panel: string;
   glass: string; glassStrong: string;
   tx: string; mut: string;
   acc: string; acc2: string; accFg: string;
@@ -13,7 +13,7 @@ export interface PaletteTokens {
 export interface Palette { key: string; name: string; light: PaletteTokens; dark: PaletteTokens; }
 
 const G = (o: Partial<PaletteTokens>): PaletteTokens => ({
-  bg: '#F7F9FB', bg2: '#E7EDF3', bg3: '#DCE6EF', glass: 'rgba(255,255,255,.60)',
+  bg: '#F7F9FB', bg2: '#E7EDF3', bg3: '#DCE6EF', panel: '#F1F4F8', glass: 'rgba(255,255,255,.60)',
   glassStrong: 'rgba(255,255,255,.78)', tx: '#1B2026', mut: '#8B929C', acc: '#44748F',
   acc2: '#6E9BBB', accFg: '#3A647B', tr: 'rgba(27,32,38,.07)', ok: '#3F9B6C',
   warn: '#C0523C', veil: 'rgba(68,116,143,.10)', r1: 'rgba(68,116,143,.12)',
@@ -23,19 +23,19 @@ const G = (o: Partial<PaletteTokens>): PaletteTokens => ({
 export const PALETTES: Palette[] = [
   { key: 'graphite', name: 'Графит',
     light: G({}),
-    dark: G({ bg:'#14171B', bg2:'#18202A', bg3:'#1E2A38', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#E9EDF2', mut:'#A9AFBA', acc:'#7FA8C9', acc2:'#AECBE2', accFg:'#9ABCD9', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(127,168,201,.12)', r1:'rgba(127,168,201,.18)', r2:'rgba(110,155,187,.14)' }) },
+    dark: G({ bg:'#14171B', bg2:'#18202A', bg3:'#1E2A38', panel:'#1C232D', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#E9EDF2', mut:'#A9AFBA', acc:'#7FA8C9', acc2:'#AECBE2', accFg:'#9ABCD9', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(127,168,201,.12)', r1:'rgba(127,168,201,.18)', r2:'rgba(110,155,187,.14)' }) },
   { key: 'azure', name: 'Лазурь',
-    light: G({ bg:'#F7FAFC', bg2:'#E8F1F7', bg3:'#DCEAF4', tx:'#12212E', mut:'#7C93A3', acc:'#1F7FA8', acc2:'#4FB3DD', accFg:'#1B6E92', tr:'rgba(18,33,46,.07)', veil:'rgba(31,127,168,.10)', r1:'rgba(31,127,168,.12)', r2:'rgba(79,179,221,.10)' }),
-    dark: G({ bg:'#0D1B2A', bg2:'#12283C', bg3:'#17324A', glass:'rgba(255,255,255,.07)', glassStrong:'rgba(255,255,255,.11)', tx:'#E8F0F5', mut:'#A3B7C6', acc:'#4FB3DD', acc2:'#8AD1EE', accFg:'#6FC3E5', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(79,179,221,.14)', r1:'rgba(79,179,221,.20)', r2:'rgba(138,209,238,.14)' }) },
+    light: G({ bg:'#F7FAFC', bg2:'#E8F1F7', bg3:'#DCEAF4', panel:'#EAF2F8', tx:'#12212E', mut:'#7C93A3', acc:'#1F7FA8', acc2:'#4FB3DD', accFg:'#1B6E92', tr:'rgba(18,33,46,.07)', veil:'rgba(31,127,168,.10)', r1:'rgba(31,127,168,.12)', r2:'rgba(79,179,221,.10)' }),
+    dark: G({ bg:'#0D1B2A', bg2:'#12283C', bg3:'#17324A', panel:'#152A3F', glass:'rgba(255,255,255,.07)', glassStrong:'rgba(255,255,255,.11)', tx:'#E8F0F5', mut:'#A3B7C6', acc:'#4FB3DD', acc2:'#8AD1EE', accFg:'#6FC3E5', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(79,179,221,.14)', r1:'rgba(79,179,221,.20)', r2:'rgba(138,209,238,.14)' }) },
   { key: 'indigo', name: 'Индиго',
-    light: G({ bg:'#F8F8FC', bg2:'#EFEFF8', bg3:'#E4E4F2', tx:'#1B1D2C', mut:'#8B8FA8', acc:'#4F55C9', acc2:'#7B80E0', accFg:'#4348AC', tr:'rgba(27,29,44,.07)', veil:'rgba(79,85,201,.09)', r1:'rgba(79,85,201,.11)', r2:'rgba(123,128,224,.10)' }),
-    dark: G({ bg:'#131419', bg2:'#181A26', bg3:'#1F2233', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#EBECF3', mut:'#A9ADC2', acc:'#8B90F0', acc2:'#B4B8F7', accFg:'#A3A8F3', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(139,144,240,.12)', r1:'rgba(139,144,240,.18)', r2:'rgba(180,184,247,.13)' }) },
+    light: G({ bg:'#F8F8FC', bg2:'#EFEFF8', bg3:'#E4E4F2', panel:'#EEEDF6', tx:'#1B1D2C', mut:'#8B8FA8', acc:'#4F55C9', acc2:'#7B80E0', accFg:'#4348AC', tr:'rgba(27,29,44,.07)', veil:'rgba(79,85,201,.09)', r1:'rgba(79,85,201,.11)', r2:'rgba(123,128,224,.10)' }),
+    dark: G({ bg:'#131419', bg2:'#181A26', bg3:'#1F2233', panel:'#1B1D2A', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#EBECF3', mut:'#A9ADC2', acc:'#8B90F0', acc2:'#B4B8F7', accFg:'#A3A8F3', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(139,144,240,.12)', r1:'rgba(139,144,240,.18)', r2:'rgba(180,184,247,.13)' }) },
   { key: 'lingon', name: 'Брусника',
-    light: G({ bg:'#FAF7F8', bg2:'#F6EEF1', bg3:'#EFE2E8', tx:'#271C21', mut:'#9E8D94', acc:'#B23A5B', acc2:'#D5677F', accFg:'#9C2F4D', tr:'rgba(39,28,33,.07)', veil:'rgba(178,58,91,.09)', r1:'rgba(178,58,91,.11)', r2:'rgba(213,103,127,.09)' }),
-    dark: G({ bg:'#171114', bg2:'#1E161B', bg3:'#281C23', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#F2EAED', mut:'#BBA9B0', acc:'#E27A97', acc2:'#F2A9BC', accFg:'#EDA2B4', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(226,122,151,.12)', r1:'rgba(226,122,151,.18)', r2:'rgba(242,169,188,.13)' }) },
+    light: G({ bg:'#FAF7F8', bg2:'#F6EEF1', bg3:'#EFE2E8', panel:'#F4ECEF', tx:'#271C21', mut:'#9E8D94', acc:'#B23A5B', acc2:'#D5677F', accFg:'#9C2F4D', tr:'rgba(39,28,33,.07)', veil:'rgba(178,58,91,.09)', r1:'rgba(178,58,91,.11)', r2:'rgba(213,103,127,.09)' }),
+    dark: G({ bg:'#171114', bg2:'#1E161B', bg3:'#281C23', panel:'#221920', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#F2EAED', mut:'#BBA9B0', acc:'#E27A97', acc2:'#F2A9BC', accFg:'#EDA2B4', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(226,122,151,.12)', r1:'rgba(226,122,151,.18)', r2:'rgba(242,169,188,.13)' }) },
   { key: 'matcha', name: 'Матча',
-    light: G({ bg:'#F8FBF8', bg2:'#EDF6EC', bg3:'#DFEEE0', tx:'#182420', mut:'#7E9386', acc:'#2E9B62', acc2:'#55BE85', accFg:'#25824F', tr:'rgba(24,36,32,.07)', veil:'rgba(46,155,98,.10)', r1:'rgba(46,155,98,.12)', r2:'rgba(85,190,133,.10)' }),
-    dark: G({ bg:'#0E1511', bg2:'#121E17', bg3:'#182720', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#E8EFEA', mut:'#A3B5A8', acc:'#63C78F', acc2:'#9FE8BE', accFg:'#8FDCAC', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(99,199,143,.12)', r1:'rgba(99,199,143,.18)', r2:'rgba(159,232,190,.13)' }) },
+    light: G({ bg:'#F8FBF8', bg2:'#EDF6EC', bg3:'#DFEEE0', panel:'#ECF4EC', tx:'#182420', mut:'#7E9386', acc:'#2E9B62', acc2:'#55BE85', accFg:'#25824F', tr:'rgba(24,36,32,.07)', veil:'rgba(46,155,98,.10)', r1:'rgba(46,155,98,.12)', r2:'rgba(85,190,133,.10)' }),
+    dark: G({ bg:'#0E1511', bg2:'#121E17', bg3:'#182720', panel:'#17211B', glass:'rgba(255,255,255,.065)', glassStrong:'rgba(255,255,255,.10)', tx:'#E8EFEA', mut:'#A3B5A8', acc:'#63C78F', acc2:'#9FE8BE', accFg:'#8FDCAC', tr:'rgba(255,255,255,.09)', ok:'#6FC79A', warn:'#E0836B', veil:'rgba(99,199,143,.12)', r1:'rgba(99,199,143,.18)', r2:'rgba(159,232,190,.13)' }) },
 ];
 
 // ── Радиальные пресеты по экранам (интенсивность ×1) ──
@@ -73,6 +73,7 @@ export function saveSettings(s: DeviceSettings) { localStorage.setItem('dd-setti
 
 // ── Даты ──
 export const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+export const MONTHS_NOM = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
 export const WD_SHORT = ['вс','пн','вт','ср','чт','пт','сб'];
 export function toISO(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -91,6 +92,73 @@ export function humanDate(iso: string): string {
     ? `${d.getDate()} ${MONTHS[d.getMonth()]}, ${WD_SHORT[d.getDay()]}`
     : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+/** Подпись под датой в шапке: пустая для сегодня/вчера/завтра, для прочих — день недели (+год, если чужой). */
+export function headDateSub(iso: string): string {
+  const t0 = todayISO();
+  if (iso === t0 || iso === shiftISO(t0, -1) || iso === shiftISO(t0, 1)) return '';
+  const d = fromISO(iso);
+  const y = fromISO(t0).getFullYear() === d.getFullYear() ? '' : ` ${d.getFullYear()}`;
+  return `${WD_SHORT[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}${y}`;
+}
+
+/** Автоподбор категории по названию (keyword-словарь; можно поменять вручную). */
+export const CATEGORY_KEYWORDS: Array<{ cat: string; words: string[] }> = [
+  { cat: 'Алкоголь', words: ['вино', 'пиво', 'водка', 'виски', 'коньяк', 'шампанск', 'сидр', 'джин', 'ром ', 'ликёр', 'ликер', 'вермут'] },
+  { cat: 'Сладкое', words: ['шоколад', 'конфет', 'печенье', 'торт', 'пирожн', 'зефир', 'мармелад', 'халв', 'варенье', 'джем', 'сахар', 'мёд', 'мороженое', 'вафл', 'пряник'] },
+  { cat: 'Фастфуд', words: ['бургер', 'пицц', 'шаверма', 'шаурма', 'хот-дог', 'фри', 'наггетс', 'роллы', 'суш'] },
+  { cat: 'Спортивное питание', words: ['протеин', 'гейнер', 'bcaa', 'креатин', 'изолят', 'казеин', 'аминокислот'] },
+  { cat: 'Напитки', words: ['кофе', 'чай', 'сок', 'квас', 'морс', 'компот', 'лимонад', 'кола', 'эспрессо', 'латте', 'капучино', 'какао'] },
+  { cat: 'Рыба', words: ['лосос', 'треск', 'минта', 'скумбр', 'селёд', 'сельд', 'тунец', 'креветк', 'кальмар', 'краб', 'форел', 'судак', 'рыб'] },
+  { cat: 'Мясо и птица', words: ['курин', 'куриц', 'говядин', 'свинин', 'индейк', 'фарш', 'стейк', 'вырезк', 'котлет', 'антрекот'] },
+  { cat: 'Молочные', words: ['молок', 'кефир', 'творог', 'сметан', 'ряженк', 'йогурт', 'сыр', 'масло сливочное'] },
+  { cat: 'Орехи', words: ['миндал', 'кешью', 'фисташк', 'арахис', 'грецк', 'семечк', 'орех'] },
+  { cat: 'Ягоды', words: ['клубник', 'малин', 'черник', 'смородин', 'вишн', 'брусник', 'ежевик'] },
+  { cat: 'Фрукты', words: ['яблок', 'банан', 'апельсин', 'мандарин', 'груш', 'персик', 'виноград', 'абрикос', 'ананас', 'арбуз', 'дын'] },
+  { cat: 'Овощи', words: ['огурц', 'помидор', 'капуст', 'морков', 'кабач', 'свёкл', 'свекл', 'шпинат', 'салат', 'брокколи', 'тыкв', 'перц'] },
+  { cat: 'Бобовые', words: ['фасол', 'горох', 'нут', 'чечевиц'] },
+  { cat: 'Супы', words: ['борщ', 'рассольник', 'солянк', 'уха', 'бульон', 'суп'] },
+  { cat: 'Готовые блюда', words: ['плов', 'голубц', 'вареник', 'пельмени', 'пюре', 'гуляш', 'рагу', 'запеканк', 'оливье'] },
+  { cat: 'Хлеб и выпечка', words: ['хлеб', 'батон', 'булк', 'лаваш', 'пирог', 'блин', 'выпечк', 'хлебцы'] },
+  { cat: 'Снеки', words: ['чипс', 'сухарик', 'попкорн', 'начос', 'крекер'] },
+  { cat: 'Соусы', words: ['майонез', 'кетчуп', 'соус', 'горчиц', 'аджик'] },
+  { cat: 'Жиры', words: ['масло'] },
+  { cat: 'Макароны', words: ['макарон', 'спагетти', 'паста', 'вермишель', 'лапш'] },
+  { cat: 'Крупы', words: ['гречк', 'рис', 'овсян', 'хлопья', 'перлов', 'пшено', 'булгур', 'кускус', 'манная', 'каша'] },
+  { cat: 'Яйца', words: ['яйцо', 'яичн', 'омлет'] },
+];
+export function guessCategory(name: string): string | null {
+  const n = name.toLowerCase();
+  for (const { cat, words } of CATEGORY_KEYWORDS) {
+    if (words.some(w => n.includes(w))) return cat;
+  }
+  return null;
+}
+
+/** Автозаполнение по штрихкоду из Open Food Facts (онлайн). */
+export async function lookupBarcode(ean: string): Promise<{ name: string; brand?: string; kcal: number; p: number; f: number; c: number } | { error: string }> {
+  try {
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${ean}.json?fields=product_name,product_name_ru,brands,nutriments`, { signal: AbortSignal.timeout(9000) });
+    if (!r.ok) return { error: 'нет связи с открытой базой' };
+    const j = await r.json();
+    const pr = j?.product;
+    if (!pr) return { error: 'такого кода в открытой базе нет' };
+    const nut = pr.nutriments ?? {};
+    const kcal = Math.round(nut['energy-kcal_100g'] ?? (Number.isFinite(nut['energy_100g']) ? nut['energy_100g'] / 4.184 : NaN));
+    if (!Number.isFinite(kcal)) return { error: 'у этого кода в базе нет КБЖУ' };
+    return {
+      name: pr.product_name_ru || pr.product_name || '',
+      brand: (pr.brands ?? '').split(',')[0]?.trim() || undefined,
+      kcal,
+      p: Math.round((nut.proteins_100g ?? 0) * 10) / 10,
+      f: Math.round((nut.fat_100g ?? 0) * 10) / 10,
+      c: Math.round((nut.carbohydrates_100g ?? 0) * 10) / 10,
+    };
+  } catch {
+    return { error: 'нет интернета или база недоступна' };
+  }
+}
+
 export function nowHM(): string { const d = new Date(); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 
 // ── КБЖУ-эвристика ──
