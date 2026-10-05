@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Entry, type Slot } from './db';
 import { getEntries, getProfile, calcNorma, deleteEntry, saveEntry, track } from './store';
 import { shiftISO, todayISO, humanDate, fromISO, MONTHS, fmt } from './lib';
-import { Ring, Sheet, useSwipe, Slide, Confirm, cx } from './ui';
+import { Ring, Sheet, useSwipe, Slide, Confirm, cx, Modal } from './ui';
 
 export function TodayScreen({ date, setDate, onAdd, showTime }: {
   date: string; setDate: (d: string) => void; onAdd: (slot: Slot | null) => void; showTime: 'snacks' | 'all';
@@ -18,6 +18,7 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
   const [calOpen, setCalOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const [confirmDel, setConfirmDel] = useState<Entry | null>(null);
+  const [explain, setExplain] = useState<null | { title: string; text: string }>(null);
 
   const totals = useMemo(() => entries.reduce((s, e) => ({
     kcal: s.kcal + e.snapshot.kcal, p: s.p + e.snapshot.p, f: s.f + e.snapshot.f, c: s.c + e.snapshot.c,
@@ -68,9 +69,24 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
         </div>
 
         <div className="flex gap-2 mb-4">
-          <Chip v={`${fmt(totals.p)} г`} k={`белки${norma ? ` · ${norma.p}` : ''}`} />
-          <Chip v={`${fmt(totals.f)} г`} k={`жиры${norma ? ` · ${norma.f}` : ''}`} />
-          <Chip v={`${fmt(totals.c)} г`} k={`углев.${norma ? ` · ${norma.c}` : ''}`} />
+          <MacroChip v={totals.p} goal={norma?.p} k="белки" onClick={() => setExplain({
+            title: 'Белки',
+            text: norma
+              ? `Белков сегодня — ${fmt(totals.p)} г, а цель на день — ${fmt(norma.p)} г. ${totals.p > norma.p ? 'Это немного больше плана: не страшно, просто информация.' : 'Укладываешься в план.'}`
+              : 'Заполни профиль — появятся цели по белкам, жирам и углеводам.',
+          })} />
+          <MacroChip v={totals.f} goal={norma?.f} k="жиры" onClick={() => setExplain({
+            title: 'Жиры',
+            text: norma
+              ? `Жиров сегодня — ${fmt(totals.f)} г, а цель на день — ${fmt(norma.f)} г. ${totals.f > norma.f ? 'Это немного больше плана: не страшно, просто информация.' : 'Укладываешься в план.'}`
+              : 'Заполни профиль — появятся цели по белкам, жирам и углеводам.',
+          })} />
+          <MacroChip v={totals.c} goal={norma?.c} k="углев." onClick={() => setExplain({
+            title: 'Углеводы',
+            text: norma
+              ? `Углеводов сегодня — ${fmt(totals.c)} г, а цель на день — ${fmt(norma.c)} г. ${totals.c > norma.c ? 'Это немного больше плана: не страшно, просто информация.' : 'Укладываешься в план.'}`
+              : 'Заполни профиль — появятся цели по белкам, жирам и углеводам.',
+          })} />
         </div>
 
         {(slots ?? []).map(slot => {
@@ -100,6 +116,14 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
       <Calendar open={calOpen} date={date} onClose={() => setCalOpen(false)} onPick={d => { setDate(d); setCalOpen(false); }} filled={filledDays} />
 
       <EntryEditModal entry={editEntry} onClose={() => setEditEntry(null)} />
+      <Modal open={!!explain} onClose={() => setExplain(null)}>
+        <div className="text-[15px] font-bold mb-2">{explain?.title}</div>
+        <p className="dd-modal-text">{explain?.text}</p>
+        <div className="dd-modal-row">
+          <button className="dd-action strong" onClick={() => setExplain(null)}>Понятно</button>
+        </div>
+      </Modal>
+
       <Confirm
         open={!!confirmDel}
         text="Удалить запись?"
@@ -116,14 +140,18 @@ async function dbSlots(): Promise<Slot[]> {
   return s.sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-function Chip({ v, k }: { v: string; k: string }) {
+function MacroChip({ v, goal, k, onClick }: { v: number; goal?: number; k: string; onClick: () => void }) {
+  const over = goal !== undefined && v > goal;
   return (
-    <div className="dd-card flex-1 text-center py-2.5">
-      <div className="text-[15px] font-bold dd-num">{v}</div>
-      <div className="text-[11px]" style={{ color: 'var(--mut)' }}>{k}</div>
+    <div className="dd-card flex-1 text-center py-2.5 cursor-pointer" onClick={onClick}>
+      <div className="text-[15px] font-bold dd-num flex items-center justify-center gap-1" style={over ? { color: 'var(--warn)' } : undefined}>
+        {fmt(v)} г{over && <span className="text-[11px]">▲</span>}
+      </div>
+      <div className="text-[11px]" style={{ color: 'var(--mut)' }}>{k}{goal !== undefined ? ` · ${fmt(goal)}` : ''}</div>
     </div>
   );
 }
+
 
 function EntryLine({ e, slot, showTime, onClick }: { e: Entry; slot: Slot; showTime: 'snacks' | 'all'; onClick: () => void }) {
   const [name, setName] = useState<string>('');

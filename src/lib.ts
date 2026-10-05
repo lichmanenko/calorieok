@@ -62,8 +62,10 @@ export function applyTheme(paletteKey: string, dark: boolean) {
 // ── Настройки устройства (не синхронизируются) ──
 export interface DeviceSettings {
   palette: string; theme: 'auto' | 'light' | 'dark'; showTime: 'snacks' | 'all'; onboarded: boolean;
+  /** рассчитывать калории из БЖУ при создании продуктов (по умолчанию вкл) */
+  calcKcal: boolean;
 }
-const DEF: DeviceSettings = { palette: 'graphite', theme: 'auto', showTime: 'snacks', onboarded: false };
+const DEF: DeviceSettings = { palette: 'graphite', theme: 'auto', showTime: 'snacks', onboarded: false, calcKcal: true };
 export function loadSettings(): DeviceSettings {
   try { return { ...DEF, ...JSON.parse(localStorage.getItem('dd-settings') ?? '{}') }; } catch { return DEF; }
 }

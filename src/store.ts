@@ -162,7 +162,11 @@ export function calcNorma(pr: Profile): Norma | null {
   if (pr.goal === 'gain') adj = Math.min(Math.round(pr.paceKgPerWeek * 7700 / 7), 500);
   let kcal = tdee + adj;
   kcal = Math.max(Math.round(kcal / 10) * 10, Math.round(bmr * 1.1));
-  return { kcal, p: Math.round(kcal * 0.25 / 4), f: Math.round(kcal * 0.3 / 9), c: Math.round(kcal * 0.45 / 4), bmr, tdee: Math.round(tdee), adj };
+  const pct = pr.macroPct ?? { p: 25, f: 30, c: 45 };
+  return {
+    kcal, p: Math.round(kcal * pct.p / 100 / 4), f: Math.round(kcal * pct.f / 100 / 9),
+    c: Math.round(kcal * pct.c / 100 / 4), bmr, tdee: Math.round(tdee), adj,
+  };
 }
 
 // ── Экспорт ──

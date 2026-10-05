@@ -65,6 +65,8 @@ export interface Profile {
   goal: 'none' | 'lose' | 'maintain' | 'gain';
   paceKgPerWeek: number;
   goalWeightKg?: number;
+  /** распределение макросов, % калорий: 25/30/45 по умолчанию, 20/30/50 «как в MFP» и т.д. */
+  macroPct?: { p: number; f: number; c: number };
   updatedAt: number;
 }
 

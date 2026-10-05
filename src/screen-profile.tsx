@@ -6,6 +6,17 @@ import { Segmented } from './ui';
 import { fmt } from './lib';
 import { NumField } from './onboarding';
 
+const MACRO_PRESETS = [
+  { key: 'balanced', pct: { p: 25, f: 30, c: 45 } },
+  { key: 'mfp', pct: { p: 20, f: 30, c: 50 } },
+  { key: 'protein', pct: { p: 30, f: 30, c: 40 } },
+];
+function macroKey(pct?: { p: number; f: number; c: number }): string {
+  if (!pct) return 'balanced';
+  const hit = MACRO_PRESETS.find(x => x.pct.p === pct.p && x.pct.f === pct.f && x.pct.c === pct.c);
+  return hit ? hit.key : 'custom';
+}
+
 const DEFAULT: Profile = {
   userId: 'local', gender: 'male', age: 35, heightCm: 175,
   formula: 'mifflin', activity: 'light', goal: 'none', paceKgPerWeek: 0.5, updatedAt: 0,
@@ -79,6 +90,21 @@ export function ProfileScreen() {
             <div className="dd-field-label">Целевой вес, кг</div>
             <NumField label="" value={pr.goalWeightKg} onChange={n => set({ goalWeightKg: n })} />
           </>
+        )}
+      </div>
+
+      <div className="dd-card p-4 mb-4">
+        <div className="dd-field-label" style={{ marginTop: 0 }}>Распределение БЖУ (доля калорий)</div>
+        <Segmented value={macroKey(pr.macroPct)} onChange={k => set({ macroPct: MACRO_PRESETS.find(x => x.key === k)?.pct })} options={[
+          { value: 'balanced', label: '25/30/45' }, { value: 'mfp', label: 'как в MFP 20/30/50' },
+          { value: 'protein', label: '30/30/40' }, { value: 'custom', label: 'вручную' },
+        ]} />
+        {macroKey(pr.macroPct) === 'custom' && (
+          <div className="dd-input-row mt-2">
+            <NumField label="белки, %" value={pr.macroPct?.p} onChange={n => set({ macroPct: { ...(pr.macroPct ?? { p: 25, f: 30, c: 45 }), p: n ?? 0 } })} />
+            <NumField label="жиры, %" value={pr.macroPct?.f} onChange={n => set({ macroPct: { ...(pr.macroPct ?? { p: 25, f: 30, c: 45 }), f: n ?? 0 } })} />
+            <NumField label="углев., %" value={pr.macroPct?.c} onChange={n => set({ macroPct: { ...(pr.macroPct ?? { p: 25, f: 30, c: 45 }), c: n ?? 0 } })} />
+          </div>
         )}
       </div>
 

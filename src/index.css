@@ -13,6 +13,8 @@
   --r1: rgba(68,116,143,.12); --r2: rgba(110,155,187,.10);
 }
 
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
 html, body, #root { height: 100%; }
 body { overflow-x: hidden; }
 body {
@@ -122,6 +124,10 @@ body {
 .dd-item .nm { font-size: 14.5px; font-weight: 550; }
 .dd-item .sub { font-size: 11.5px; color: var(--mut); margin-top: 2px; }
 .dd-item .kc { font-size: 12.5px; color: var(--mut); white-space: nowrap; }
+.dd-item .dd-more {
+  flex: none; width: 30px; height: 34px; border-radius: 11px; border: none;
+  background: transparent; color: var(--mut); font-size: 17px; font-weight: 700; cursor: pointer;
+}
 .dd-item .plus {
   flex: none; width: 34px; height: 34px; border-radius: 12px; border: none;
   background: var(--veil); color: var(--acc-fg); font-size: 18px; font-weight: 700; cursor: pointer;
@@ -137,6 +143,8 @@ body {
 select.dd-input, .dd-select { -webkit-appearance: menulist; appearance: menulist; }
 select.dd-input option { background: var(--bg2); color: var(--tx); }
 input[type=time].dd-input { padding: 0 8px; }
+.dd-input[disabled] { opacity: .75; }
+.dd-input[readonly] { opacity: .9; }
 .dd-input::placeholder { color: var(--mut); }
 .dd-field-label { font-size: 12px; font-weight: 600; color: var(--mut); margin: 12px 2px 6px; }
 .dd-input-row { display: flex; gap: 8px; }
@@ -154,7 +162,7 @@ input[type=time].dd-input { padding: 0 8px; }
   flex: 1; text-align: center; padding: 8px 4px; border-radius: 16px; font-size: 11px;
   color: var(--mut); background: transparent; border: none; font-weight: 600; cursor: pointer; font-family: inherit;
 }
-.dd-tab .ti { font-size: 20px; display: block; margin-bottom: 2px; opacity: .85; }
+.dd-tab .ti { font-size: 24px; display: block; margin-bottom: 2px; opacity: .9; }
 .dd-tab.on { background: var(--glass); color: var(--acc-fg); }
 
 /* ── Онбординг: экран без прокрутки, закреплённые шапка/подвал ── */

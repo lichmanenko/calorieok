@@ -5,7 +5,7 @@ import { db } from './db';
 import type { Slot } from './db';
 import { PALETTES, type DeviceSettings, todayISO } from './lib';
 import { exportJSON, exportCSV, download, wipeAll, track } from './store';
-import { Segmented, Confirm } from './ui';
+import { Segmented, Confirm, cx } from './ui';
 
 export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
   settings: DeviceSettings; setSettings: (s: DeviceSettings) => void; onRestartOnboarding: () => void;
@@ -35,6 +35,17 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
         <Segmented value={settings.showTime} onChange={v => setSettings({ ...settings, showTime: v })} options={[
           { value: 'snacks', label: 'только перекусы' }, { value: 'all', label: 'все записи' },
         ]} />
+      </div>
+
+      <div className="dd-field-label">Поведение</div>
+      <div className="dd-card px-4 py-1">
+        <div className="st-row">
+          <div>
+            <div className="text-sm font-medium">🧮 Калории из БЖУ</div>
+            <div className="text-[11px]" style={{ color: 'var(--mut)' }}>при создании продуктов калории считаются из белков-жиров-углеводов</div>
+          </div>
+          <button className={cx('dd-sw', settings.calcKcal && 'on')} onClick={() => setSettings({ ...settings, calcKcal: !settings.calcKcal })} />
+        </div>
       </div>
 
       <div className="dd-field-label">Времена приёмов пищи (подставляются при вводе)</div>
