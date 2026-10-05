@@ -2,7 +2,7 @@
 
 Домашний трекер питания и веса для семьи: PWA для iPhone, которая работает **полностью без интернета** и синхронизируется с домашним сервером (QNAP NAS) при появлении сети. Бюджет эксплуатации — 0 ₽.
 
-**Статус:** M0 (ядро) — v0.1.2, в семейном тестировании. [PLAN.md](PLAN.md) · [SPEC.md](SPEC.md)
+**Статус:** M0 (ядро) — v0.1.5, в семейном тестировании. [PLAN.md](PLAN.md) · [SPEC.md](SPEC.md)
 
 ## Что это
 
@@ -26,4 +26,4 @@ React 18 + TypeScript + Vite + Tailwind + Dexie (IndexedDB) + Workbox (PWA). Б�
 ## Демо
 
 - Приложение (по мере готовности): https://lichmanenko.github.io/deep-dish/
-- Дизайн-витрины: `design/palettes.html`, `design/mockups.html`, `design/gradients.html`
+- Дизайн-витрины: `design/palettes.html`, `design/mockups.html`, `design/gradients.html`, `design/brand.html`
