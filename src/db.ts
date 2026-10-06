@@ -57,6 +57,17 @@ export interface WeightLog {
   createdAt: number; updatedAt: number; deletedAt: number | null;
 }
 
+/** Снапшот дневной нормы: фиксируется за днём, прошлое не пересчитывается (решение В.). */
+export interface DayNorma {
+  date: string; // YYYY-MM-DD, первичный ключ
+  kcal: number; p: number; f: number; c: number;
+  basis: 'formula' | 'adaptive';
+  /** компоненты для экрана «почему такая цифра» */
+  detail: { bmr?: number; tdeeFormula?: number; tdeeAdaptive?: number; adj?: number; floor?: number;
+    windowDays?: number; coverage?: number; intakeAvg?: number; weightDelta?: number };
+  createdAt: number;
+}
+
 export interface Profile {
   userId: string;
   gender: 'male' | 'female'; age: number; heightCm: number;
@@ -102,6 +113,7 @@ class DeepDishDb extends Dexie {
   foods!: EntityTable<Food, 'id'>;
   recipes!: EntityTable<Recipe, 'id'>;
   savedMeals!: EntityTable<SavedMeal, 'id'>;
+  dayNormas!: EntityTable<DayNorma, 'date'>;
   slots!: EntityTable<Slot, 'id'>;
   entries!: EntityTable<Entry, 'id'>;
   weightLogs!: EntityTable<WeightLog, 'id'>;
@@ -150,6 +162,18 @@ class DeepDishDb extends Dexie {
       weightLogs: 'id, userId, date, deletedAt, [userId+date]',
       profiles: 'userId',
       events: 'id, ts, name',
+    });
+    // v4 — снапшоты дневной нормы (M1: прошлое не пересчитывается)
+    this.version(4).stores({
+      foods: 'id, name, category, barcode, ownerId, source, deletedAt, star',
+      recipes: 'id, name, ownerId, deletedAt, star',
+      savedMeals: 'id, name, ownerId, deletedAt',
+      slots: 'id, ownerId, sortOrder, deletedAt',
+      entries: 'id, userId, date, slotId, refId, createdAt, deletedAt, [userId+date]',
+      weightLogs: 'id, userId, date, deletedAt, [userId+date]',
+      profiles: 'userId',
+      events: 'id, ts, name',
+      dayNormas: 'date',
     });
   }
 }

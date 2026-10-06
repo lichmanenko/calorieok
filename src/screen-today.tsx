@@ -1,8 +1,9 @@
 // Экран «Сегодня»: кольцо нормы, чипы БЖУ, слоты с записями, навигация по датам
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Entry, type Slot } from './db';
-import { getEntries, getProfile, calcNorma, deleteEntry, saveEntry, track, saveMealFromSlot } from './store';
+import type { DayNorma } from './db';
+import { getEntries, getProfile, deleteEntry, saveEntry, track, saveMealFromSlot, ensureDayNorma, getWeights, weightForecast, type WeightPoint } from './store';
 import { shiftISO, todayISO, humanDate, fromISO, MONTHS_NOM, fmt } from './lib';
 import { Ring, Sheet, useSwipe, Slide, Confirm, cx, Modal } from './ui';
 
@@ -12,7 +13,9 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
   const entries = useLiveQuery(() => getEntries(date), [date], [] as Entry[]);
   const slots = useLiveQuery(() => dbSlots(), [], [] as Slot[]);
   const profile = useLiveQuery(() => getProfile(), []);
-  const norma = profile ? calcNorma(profile) : null;
+  // норма дня: снапшот, фиксируется за днём при первом просмотре (прошлое не пересчитывается)
+  const [norma, setNorma] = useState<DayNorma | null>(null);
+  useEffect(() => { ensureDayNorma(date).then(setNorma); }, [date, profile?.updatedAt]);
 
   const [dir, setDir] = useState<0 | -1 | 1>(0);
   const [calOpen, setCalOpen] = useState(false);
@@ -21,6 +24,21 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const [confirmDel, setConfirmDel] = useState<Entry | null>(null);
   const [explain, setExplain] = useState<null | { title: string; text: string }>(null);
+  const [whyOpen, setWhyOpen] = useState(false);
+  const weights = useLiveQuery(() => getWeights(), [], [] as WeightPoint[]);
+  const forecast = useLiveQuery(() => weightForecast(), [], null);
+  const goalProgress = useMemo(() => {
+    if (!profile?.goalWeightKg || profile.goal === 'none' || !weights?.length) return null;
+    const last = weights![weights!.length - 1].date;
+    const from = new Date(new Date(last + 'T00:00:00').getTime() - 89 * 86400000).toISOString().slice(0, 10);
+    const win = weights!.filter(w => w.date >= from);
+    const start = win[0]?.kg ?? weights![0].kg;
+    const cur = forecast?.trendKg ?? weights![weights!.length - 1].kg;
+    const total = start - profile.goalWeightKg;
+    if (total <= 0) return null;
+    const done = Math.max(0, Math.min(1, (start - cur) / total));
+    return { pct: Math.round(done * 100), start, cur, goal: profile.goalWeightKg };
+  }, [weights, forecast, profile?.goalWeightKg, profile?.goal]);
 
   const totals = useMemo(() => entries.reduce((s, e) => ({
     kcal: s.kcal + e.snapshot.kcal, p: s.p + e.snapshot.p, f: s.f + e.snapshot.f, c: s.c + e.snapshot.c,
@@ -73,11 +91,19 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
             <div className="text-lg font-extrabold dd-num">{fmt(rest)}</div>
             <div className="text-[10px]" style={{ color: 'var(--mut)' }}>осталось</div>
           </Ring>
-          <div>
+          <div className="min-w-0">
             <div className="text-xl font-bold dd-num">{fmt(totals.kcal)} ккал</div>
-            <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>из {target} · {percent}%</div>
+            <div className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--mut)' }}>
+              <span>из {target} · {percent}%</span>
+              <button className="dd-info" style={{ width: 22, height: 22, fontSize: 11 }} aria-label="Почему такая норма"
+                onClick={() => setWhyOpen(true)}>ⓘ</button>
+              {norma?.basis === 'adaptive' && <span className="dd-chip-adaptive">тренд</span>}
+            </div>
             {percent > 100 && <div className="text-xs mt-1" style={{ color: 'var(--warn)' }}>↑ перебор на {fmt(totals.kcal - target)}</div>}
           </div>
+          {goalProgress && (
+            <GoalRing pct={goalProgress.pct} onTap={() => setWhyOpen(true)} />
+          )}
         </div>
 
         <div className="flex gap-2 mb-4">
@@ -155,6 +181,35 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
         </div>
       </Modal>
 
+      <Modal open={whyOpen} onClose={() => setWhyOpen(false)}>
+        <div className="text-[15px] font-bold mb-2">Почему такая норма</div>
+        {(() => {
+          const d = norma?.detail;
+          if (!d) return <p className="dd-modal-text">Заполни профиль — норма посчитается автоматически.</p>;
+          const rows: Array<[string, string]> = [
+            ['Базовый обмен', `${fmt(d.bmr ?? 0)} ккал — столько тратит тело в покое (Миффлин)`],
+            ['Расход по формуле', `${fmt(d.tdeeFormula ?? 0)} ккал — с учётом активности из профиля`],
+          ];
+          if (d.tdeeAdaptive) rows.push(['Твой факт из истории', `${fmt(d.tdeeAdaptive)} ккал — по окну ${d.windowDays} дн (${d.coverage}% дней с записями): ел в среднем ${fmt(d.intakeAvg ?? 0)}, вес изменился на ${String(d.weightDelta).replace('-', '−').replace('.', ',')} кг`]);
+          rows.push(d.adj ? ['Поправка на цель', `${d.adj > 0 ? '+' : '−'}${fmt(Math.abs(d.adj))} ккал — темп из профиля`] : ['Поправка на цель', 'нет — режим «держать»']);
+          rows.push(['Итог на день', `${fmt(norma!.kcal)} ккал${norma!.basis === 'adaptive' ? ' — формула, поправленная твоим фактом' : ' — по формуле'}`]);
+          return (
+            <>
+              {rows.map(([k, v]) => (
+                <div key={k} className="py-1.5" style={{ borderBottom: '1px solid var(--tr)' }}>
+                  <div className="text-[11px]" style={{ color: 'var(--mut)' }}>{k}</div>
+                  <div className="text-[13px]">{v}</div>
+                </div>
+              ))}
+              <p className="dd-modal-text" style={{ marginTop: 8 }}>Норма зафиксирована за {norma!.date} и не пересчитается задним числом.</p>
+            </>
+          );
+        })()}
+        <div className="dd-modal-row">
+          <button className="dd-action strong" onClick={() => setWhyOpen(false)}>Понятно</button>
+        </div>
+      </Modal>
+
       <Confirm
         open={!!confirmDel}
         text="Удалить запись?"
@@ -162,6 +217,23 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
         onOk={() => { if (confirmDel) { deleteEntry(confirmDel.id); track('entry_deleted'); setConfirmDel(null); } }}
       />
     </div>
+  );
+}
+
+/** Второе кольцо: прогресс к цели по весу (M1) */
+function GoalRing({ pct, onTap }: { pct: number; onTap: () => void }) {
+  const R = 15.9; // r=15.9 → длина окружности 100
+  return (
+    <button onClick={onTap} aria-label="Прогресс к цели по весу"
+      className="flex flex-col items-center gap-0.5" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+      <svg width="46" height="46" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="18" cy="18" r={R} fill="none" stroke="var(--tr)" strokeWidth="3.5" />
+        <circle cx="18" cy="18" r={R} fill="none" stroke="var(--acc2)" strokeWidth="3.5" strokeLinecap="round"
+          strokeDasharray={`${Math.min(100, pct)} 100`} />
+      </svg>
+      <span className="text-[10px] dd-num" style={{ color: 'var(--mut)' }}>{pct}%</span>
+      <span className="text-[9px]" style={{ color: 'var(--mut)' }}>к цели</span>
+    </button>
   );
 }
 

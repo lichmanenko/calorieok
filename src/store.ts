@@ -1,5 +1,5 @@
 // Слой доступа к данным + расчёты нормы + трекер метрик
-import { db, newId, LOCAL_USER, type Entry, type Food, type Profile, type Recipe, type Slot, type KbjuSnapshot } from './db';
+import { db, newId, LOCAL_USER, type Entry, type Food, type Profile, type Recipe, type Slot, type KbjuSnapshot, type DayNorma } from './db';
 import { todayISO, nowHM, kbjuSuspicious, fmt } from './lib';
 
 // ── Метрики ──
@@ -140,7 +140,18 @@ export async function saveRecipe(name: string, items: Array<{ foodId: string; gr
 
 // ── Профиль и норма ──
 export async function getProfile(): Promise<Profile | undefined> { return db.profiles.get(LOCAL_USER); }
-export async function saveProfile(p: Profile) { await db.profiles.put({ ...p, userId: LOCAL_USER, updatedAt: Date.now() }); }
+export async function saveProfile(p: Profile) {
+  const prev = await getProfile();
+  await db.profiles.put({ ...p, userId: LOCAL_USER, updatedAt: Date.now() });
+  // изменение веса в профиле = взвешивание (ручной ввод до Health-моста, M3)
+  if (p.weightKg !== undefined && p.weightKg > 0 && prev?.weightKg !== p.weightKg) {
+    const today = todayISO();
+    const exist = await db.weightLogs.where('[userId+date]').equals([LOCAL_USER, today]).first();
+    if (exist && !exist.deletedAt) await db.weightLogs.update(exist.id, { weightKg: p.weightKg, updatedAt: Date.now() });
+    else await db.weightLogs.add({ id: newId(), userId: LOCAL_USER, date: today, weightKg: p.weightKg, source: 'manual', createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null });
+    track('weight_logged', { kg: p.weightKg, source: 'profile' });
+  }
+}
 
 const ACT: Record<Profile['activity'], number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
 
@@ -169,6 +180,134 @@ export function calcNorma(pr: Profile): Norma | null {
   };
 }
 
+// ── M1: вес, адаптивная норма по энергобалансу, снапшоты дня ──────────────────
+
+export interface WeightPoint { date: string; kg: number }
+
+export async function getWeights(): Promise<WeightPoint[]> {
+  const ws = await db.weightLogs.filter(w => !w.deletedAt && w.userId === LOCAL_USER).toArray();
+  return ws.map(w => ({ date: w.date, kg: w.weightKg })).sort((a, b) => a.date < b.date ? -1 : 1);
+}
+
+/** сумма ккал по дням за диапазон [from, to] включительно */
+export async function getDailyIntake(from: string, to: string): Promise<Map<string, number>> {
+  const es = await db.entries.filter(e => !e.deletedAt && e.date >= from && e.date <= to).toArray();
+  const m = new Map<string, number>();
+  for (const e of es) m.set(e.date, (m.get(e.date) ?? 0) + e.snapshot.kcal);
+  return m;
+}
+
+/** линейная регрессия веса: slope кг/день */
+export function weightTrend(points: WeightPoint[]): { slope: number; intercept: number } | null {
+  if (points.length < 2) return null;
+  const t0 = new Date(points[0].date).getTime();
+  const xs = points.map(p => (new Date(p.date).getTime() - t0) / 86400000);
+  const ys = points.map(p => p.kg);
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
+  if (den === 0) return null;
+  const slope = num / den;
+  return { slope, intercept: my - slope * mx };
+}
+
+function weightAt(points: WeightPoint[], date: string): number | null {
+  let best: WeightPoint | null = null; let bd = Infinity;
+  const t = new Date(date).getTime();
+  for (const p of points) {
+    const d = Math.abs(new Date(p.date).getTime() - t);
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best?.kg ?? null;
+}
+
+export interface AdaptiveInfo {
+  tdee: number; windowDays: number; coverage: number; intakeAvg: number; weightDelta: number; from: string; to: string;
+}
+
+/** фактический расход из истории: окна по 28 дней за последние 120, покрытие ≥75% */
+export function adaptiveTdee(weights: WeightPoint[], intake: Map<string, number>, endDate: string): AdaptiveInfo | null {
+  if (weights.length < 2) return null;
+  const end = new Date(endDate + 'T00:00:00');
+  const windows: AdaptiveInfo[] = [];
+  for (let off = 0; off <= 92; off += 7) {
+    const e = new Date(end); e.setDate(e.getDate() - off);
+    const b = new Date(e); b.setDate(b.getDate() - 27);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const from = iso(b), to = iso(e);
+    let days = 0, sum = 0;
+    for (let d = new Date(b); d <= e; d.setDate(d.getDate() + 1)) {
+      const k = intake.get(iso(d)) ?? 0;
+      if (k > 0) { days++; sum += k; }
+    }
+    if (days < 21) continue; // неплотное окно пропускаем
+    const wa = weightAt(weights, from), wb = weightAt(weights, to);
+    if (wa === null || wb === null) continue;
+    const delta = wb - wa;
+    const tdee = (sum - delta * 7700) / 28;
+    if (tdee < 1200 || tdee > 5000) continue; // защита от мусорных окон
+    windows.push({ tdee, windowDays: 28, coverage: days / 28, intakeAvg: sum / 28, weightDelta: delta, from, to });
+  }
+  if (!windows.length) return null;
+  return windows[0]; // первое = самое свежее (off растёт в прошлое)
+}
+
+/** снапшот нормы за день: фиксируется при первом просмотре, прошлое не пересчитывается */
+export async function ensureDayNorma(date: string): Promise<DayNorma | null> {
+  const pr = await getProfile();
+  if (!pr) return null;
+  const existing = await db.dayNormas.get(date);
+  if (existing) return existing;
+  const base = calcNorma(pr);
+  if (!base) return null;
+  const today = todayISO();
+  const weights = await getWeights();
+  const upTo = weights.length ? weights[weights.length - 1].date : today;
+  const from = new Date(new Date(upTo + 'T00:00:00').getTime() - 119 * 86400000).toISOString().slice(0, 10);
+  const intake = await getDailyIntake(from, upTo);
+  const ad = adaptiveTdee(weights, intake, upTo);
+  let kcal = base.kcal;
+  const detail: DayNorma['detail'] = { bmr: base.bmr, tdeeFormula: base.tdee, adj: base.adj };
+  if (ad && ad.coverage >= 0.75) {
+    // мягкая подстройка: не дальше ±350 ккал от формулы, не ниже пола 1.1×BMR
+    const shifted = Math.round(base.tdee + Math.max(-350, Math.min(350, ad.tdee - base.tdee)));
+    let k = shifted + base.adj;
+    k = Math.max(Math.round(k / 10) * 10, Math.round(base.bmr * 1.1));
+    kcal = k;
+    detail.tdeeAdaptive = Math.round(ad.tdee);
+    detail.windowDays = ad.windowDays; detail.coverage = Math.round(ad.coverage * 100);
+    detail.intakeAvg = Math.round(ad.intakeAvg); detail.weightDelta = Math.round(ad.weightDelta * 10) / 10;
+  }
+  const snap: DayNorma = {
+    date, kcal, p: Math.round(kcal * (pr.macroPct?.p ?? 25) / 100 / 4),
+    f: Math.round(kcal * (pr.macroPct?.f ?? 30) / 100 / 9), c: Math.round(kcal * (pr.macroPct?.c ?? 45) / 100 / 4),
+    basis: detail.tdeeAdaptive ? 'adaptive' : 'formula', detail, createdAt: Date.now(),
+  };
+  if (date <= today) await db.dayNormas.put(snap); // будущее не фиксируем
+  return snap;
+}
+
+/** прогноз достижения цели по тренду (окно 56 дней) */
+export async function weightForecast(): Promise<{ slopePerWeek: number; etaDate: string; trendKg: number } | null> {
+  const pr = await getProfile();
+  if (!pr?.goalWeightKg || pr.goal === 'none' || pr.goal === 'maintain') return null;
+  const weights = await getWeights();
+  if (weights.length < 2) return null;
+  const last = weights[weights.length - 1].date;
+  const from = new Date(new Date(last + 'T00:00:00').getTime() - 55 * 86400000).toISOString().slice(0, 10);
+  const win = weights.filter(w => w.date >= from);
+  const tr = weightTrend(win);
+  if (!tr || tr.slope >= -0.001) return null; // не худеем — прогноза нет
+  const t0 = new Date(win[0].date).getTime();
+  const todayX = (new Date(todayISO() + 'T00:00:00').getTime() - t0) / 86400000;
+  const trendKg = tr.slope * todayX + tr.intercept;
+  const daysLeft = Math.round((trendKg - pr.goalWeightKg) / -tr.slope);
+  if (daysLeft <= 0 || daysLeft > 3 * 365) return null;
+  const eta = new Date(); eta.setDate(eta.getDate() + daysLeft);
+  return { slopePerWeek: Math.round(-tr.slope * 700) / 100, etaDate: eta.toISOString().slice(0, 10), trendKg: Math.round(trendKg * 10) / 10 };
+}
+
 // ── Экспорт ──
 export async function exportJSON(): Promise<Blob> {
   const dump = {
@@ -176,6 +315,7 @@ export async function exportJSON(): Promise<Blob> {
     foods: await db.foods.toArray(), recipes: await db.recipes.toArray(),
     savedMeals: await db.savedMeals.toArray(), slots: await db.slots.toArray(),
     entries: await db.entries.toArray(), weightLogs: await db.weightLogs.toArray(),
+    dayNormas: await db.dayNormas.toArray(),
     profiles: await db.profiles.toArray(),
   };
   return new Blob([JSON.stringify(dump, null, 1)], { type: 'application/json' });

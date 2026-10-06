@@ -1,6 +1,7 @@
 // Профиль: биометрия (с текущим весом), формула, цель + норма с раскладкой; «Сохранить» активна только при изменениях
 import { useEffect, useState } from 'react';
-import { getProfile, saveProfile, calcNorma, track } from './store';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { getProfile, saveProfile, calcNorma, track, getWeights, weightForecast, type WeightPoint } from './store';
 import type { Profile } from './db';
 import { Segmented } from './ui';
 import { fmt } from './lib';
@@ -23,6 +24,8 @@ export function ProfileScreen() {
   const [pr, setPr] = useState<Profile | null>(null);
   const [baseline, setBaseline] = useState('');
   const [saved, setSaved] = useState(false);
+  const weights = useLiveQuery(() => getWeights(), [], [] as WeightPoint[]);
+  const forecast = useLiveQuery(() => weightForecast(), [], null);
 
   useEffect(() => { getProfile().then(p => { setPr(p ?? DEFAULT); setBaseline(JSON.stringify(p ?? DEFAULT)); }); }, []);
   if (!pr) return <div className="min-h-screen" />;
@@ -51,8 +54,10 @@ export function ProfileScreen() {
           <NumField label="рост, см" value={pr.heightCm} onChange={n => set({ heightCm: n ?? 0 })} />
           <NumField label="вес, кг" value={pr.weightKg} onChange={n => set({ weightKg: n })} />
         </div>
-        <div className="text-[10px] mt-2" style={{ color: 'var(--mut)' }}>текущий вес — точка отсчёта нормы; лог веса и динамика — в M1</div>
+        <div className="text-[10px] mt-2" style={{ color: 'var(--mut)' }}>текущий вес — точка отсчёта нормы; изменение веса записывается как взвешивание</div>
       </div>
+
+      <WeightCard weights={weights} forecast={forecast} />
 
       <div className="dd-card p-4 mb-4">
         <div className="dd-field-label" style={{ marginTop: 0 }}>Активность</div>
@@ -117,3 +122,65 @@ export function ProfileScreen() {
     </div>
   );
 }
+
+
+// ── Динамика веса: спарклайн за год + тренд + прогноз цели (M1) ──
+function WeightCard({ weights, forecast }: { weights: WeightPoint[] | undefined; forecast: { slopePerWeek: number; etaDate: string; trendKg: number } | null }) {
+  if (!weights || weights.length === 0) return null;
+  // окно 365 дней; точки прореживаем до ~120
+  const last = weights[weights.length - 1].date;
+  const from = new Date(new Date(last + 'T00:00:00').getTime() - 364 * 86400000).toISOString().slice(0, 10);
+  const win = weights.filter(w => w.date >= from);
+  const shown = win.length > 120 ? win.filter((_, i) => i % Math.ceil(win.length / 120) === 0 || i === win.length - 1) : win;
+  const kgs = shown.map(w => w.kg);
+  const min = Math.min(...kgs), max = Math.max(...kgs);
+  const W = 300, H = 84, pad = 6;
+  const x = (i: number) => pad + (W - 2 * pad) * (i / Math.max(1, shown.length - 1));
+  const y = (kg: number) => pad + (H - 2 * pad) * (1 - (kg - min) / Math.max(0.1, max - min));
+  const pts = shown.map((w, i) => `${x(i).toFixed(1)},${y(w.kg).toFixed(1)}`).join(' ');
+  const trend = weightTrendLocal(shown);
+  const y0 = trend ? y(trend.slope * 0 + trend.intercept) : 0;
+  const yN = trend ? y(trend.slope * (shown.length - 1) + trend.intercept) : 0;
+  const first = win[0].kg, cur = weights[weights.length - 1].kg;
+  const delta = Math.round((cur - first) * 10) / 10;
+  return (
+    <div className="dd-card p-4 mb-4">
+      <div className="flex justify-between items-baseline">
+        <div className="dd-field-label" style={{ marginTop: 0 }}>Динамика веса</div>
+        <div className="text-[11px] dd-num" style={{ color: delta > 0 ? 'var(--warn)' : 'var(--ok)' }}>
+          {delta > 0 ? '+' : ''}{delta} кг за год
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 84 }}>
+        <polyline points={pts} fill="none" stroke="var(--acc)" strokeWidth="1.5" strokeLinejoin="round" opacity=".85" />
+        {trend && <line x1={x(0)} y1={y0} x2={x(shown.length - 1)} y2={yN} stroke="var(--mut)" strokeWidth="1" strokeDasharray="4 4" />}
+      </svg>
+      <div className="flex justify-between text-[10px] dd-num" style={{ color: 'var(--mut)' }}>
+        <span>{fmtLocal(first)} → {fmtLocal(cur)} кг</span>
+        <span>тренд {forecast ? `−${String(forecast.slopePerWeek).replace('.', ',')} кг/нед` : '—'}</span>
+      </div>
+      {forecast && (
+        <div className="text-[11.5px] mt-1" style={{ color: 'var(--acc-fg)' }}>
+          при таком темпе цель достигается ≈ {ruDate(forecast.etaDate)} (тренд-вес {fmtLocal(forecast.trendKg)} кг)
+        </div>
+      )}
+    </div>
+  );
+}
+
+function weightTrendLocal(points: WeightPoint[]): { slope: number; intercept: number } | null {
+  if (points.length < 2) return null;
+  const t0 = new Date(points[0].date).getTime();
+  const xs = points.map(p => (new Date(p.date).getTime() - t0) / 86400000);
+  const ys = points.map(p => p.kg);
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
+  if (den === 0) return null;
+  return { slope: num / den, intercept: my - (num / den) * mx };
+}
+
+const fmtLocal = (v: number) => String(v).replace('.', ',');
+const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+function ruDate(iso: string) { const d = new Date(iso + 'T00:00:00'); return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`; }

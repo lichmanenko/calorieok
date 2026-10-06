@@ -214,6 +214,7 @@ input[type=time].dd-input { padding: 0 8px; }
 }
 
 /* ── Экран добавления: sticky-шапка и чипы ── */
+.dd-chip-adaptive { font-size: 10px; font-weight: 700; color: var(--acc-fg); background: var(--tr); border-radius: 8px; padding: 2px 7px; }
 .dd-searchwrap { position: relative; }
 .dd-searchclear {
   position: absolute; right: 26px; top: 50%; transform: translateY(-50%);
