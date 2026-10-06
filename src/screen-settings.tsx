@@ -1,11 +1,11 @@
 // Настройки: гамма, тема, отображение времени, времена слотов, онбординг, экспорт/импорт, сброс
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
 import type { Slot } from './db';
 import { PALETTES, type DeviceSettings, todayISO } from './lib';
-import { exportJSON, exportCSV, download, wipeAll, track, importJSONText } from './store';
-import { Segmented, Confirm, Modal } from './ui';
+import { exportJSON, exportCSV, download, wipeAll, track } from './store';
+import { Segmented, Confirm } from './ui';
 
 export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
   settings: DeviceSettings; setSettings: (s: DeviceSettings) => void; onRestartOnboarding: () => void;
@@ -14,19 +14,6 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
   const slots = useLiveQuery(async () =>
     (await db.slots.filter(s => !s.deletedAt).toArray()).sort((a, b) => a.sortOrder - b.sortOrder), [], [] as Slot[]);
 
-  // импорт JSON-бэкапа (в т.ч. сконвертированного из MFP агентом — конвертация вне приложения)
-  const fileJson = useRef<HTMLInputElement>(null);
-  const [importMsg, setImportMsg] = useState<string | null>(null);
-  const [importErr, setImportErr] = useState(false);
-
-  async function onJsonFile(f: File) {
-    try {
-      const counts = await importJSONText(await f.text());
-      const parts = Object.entries(counts).map(([k, v]) => `${v} ${k === 'entries' ? 'записей' : k === 'foods' ? 'продуктов' : k}`);
-      setImportErr(false);
-      setImportMsg(`Бэкап восстановлен: ${parts.join(', ') || 'файл пуст'}.`);
-    } catch (e) { setImportErr(true); setImportMsg(`Импорт не удался: ${(e as Error).message}.`); }
-  }
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-28">
@@ -70,10 +57,6 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
           action={<button className="dd-link-btn" onClick={() => exportJSON().then(b => download(b, `deepdish-${todayISO()}.json`))}>→</button>} />
         <Row label="Экспорт CSV (еда)" hint="для Excel"
           action={<button className="dd-link-btn" onClick={() => exportCSV().then(b => download(b, `deepdish-eda-${todayISO()}.csv`))}>→</button>} />
-        <Row label="Импорт JSON (восстановление)" hint="бэкап или файл из MFP-конвертера"
-          action={<button className="dd-link-btn" onClick={() => fileJson.current?.click()}>→</button>} />
-        <input ref={fileJson} type="file" accept=".json,application/json" hidden
-          onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onJsonFile(f); }} />
         <Row label="Пройти онбординг заново" hint="как пользоваться + установка"
           action={<button className="dd-link-btn" onClick={onRestartOnboarding}>→</button>} />
         <Row label="Удалить все данные" hint="дневник, каталог, профиль — без возврата"
@@ -83,13 +66,6 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
       <p className="text-[10px] mt-6 text-center" style={{ color: 'var(--mut)' }}>
         Deep Dish · v{__APP_VER__} · сборка {__APP_SHA__} · работает офлайн · синхронизация в M2
       </p>
-
-      <Modal open={!!importMsg} onClose={() => { if (!importErr) location.reload(); else setImportMsg(null); }}>
-        <p className="dd-modal-text">{importMsg}{!importErr && ' Экран перезагрузится.'}</p>
-        <div className="dd-modal-row">
-          <button className="dd-action strong" onClick={() => { if (!importErr) location.reload(); else setImportMsg(null); }}>Готово</button>
-        </div>
-      </Modal>
 
       <Confirm open={confirmWipe} text="Точно удалить ВСЁ? Дневник, каталог и профиль исчезнут безвозвратно."
         okLabel="Удалить всё" onCancel={() => setConfirmWipe(false)}
