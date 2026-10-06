@@ -1,16 +1,18 @@
 #!/usr/bin/env node
-// Конвертер выгрузки MyFitnessPal (CSV Premium) в JSON-бэкап Deep Dish.
+// Конвертер выгрузок MyFitnessPal в JSON-бэкап Deep Dish.
 // Запускается агентом, вне приложения (решение В. 06.10: импорт MFP — «здесь», не в UI).
 //
-//   node tools/mfp2dd.mjs <food.csv> [backup.json] [-o out.json]
+//   node tools/mfp2dd.mjs <путь> [backup.json] [-o out.json]
 //
-//   food.csv     — выгрузка MFP (Account Settings → Export Data → CSV)
-//   backup.json  — необязательно: текущий экспорт Deep Dish (Настройки → Данные → Экспорт JSON).
-//                  Если задан — записи DD в диапазоне дат CSV заменяются импортируемыми
-//                  (защита от дублей с тестовыми записями), остальные данные проходят как есть.
-//                  Если не задан — на выходе только новые продукты и записи MFP
-//                  (заливка добавит их к существующему дневнику).
-import { readFileSync, writeFileSync } from 'node:fs';
+//   <путь>       — CSV или ПАПКА выгрузки MFP. Поддержаны форматы:
+//                  1) «Экспорт за период» (веб, рус. локаль): «Статистика по питанию» —
+//                     итоги приёма без названий блюд (+ рядом «по показателям» — вес);
+//                  2) полный экспорт Account Settings → Export Data (food.csv): строки-блюда.
+//                  Для папки файлы ищутся по именам (питание/food, показателям/measurement).
+//   backup.json  — необязательно: текущий экспорт Deep Dish. Если задан, записи DD
+//                  в диапазоне дат выгрузки заменяются импортируемыми (без дублей),
+//                  остальное проходит как есть; вес мерджится по дате.
+import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { argv, exit } from 'node:process';
 
 const SLOT_DEFAULTS = { breakfast: ['slot-breakfast', '08:00'], lunch: ['slot-lunch', '13:00'], dinner: ['slot-dinner', '19:00'] };
@@ -32,9 +34,12 @@ function splitCsvLine(line) {
   return out.map(s => s.trim());
 }
 
-// MFP пишет даты как MM/DD/YYYY (или DD/MM/YYYY в локали) — различаем по невозможному месяцу
+// Даты MFP: YYYY-MM-DD (экспорт за период, рус. локаль), MM/DD/YYYY, DD/MM/YYYY
 function mfpDate(raw) {
-  const m = raw.trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  const s = raw.trim();
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) { const p = n => n.padStart(2, '0'); return `${iso[1]}-${p(iso[2])}-${p(iso[3])}`; }
+  const m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
   if (!m) return '';
   let a = m[1], b = m[2];
   const y = m[3].length === 2 ? '20' + m[3] : m[3];
@@ -49,49 +54,93 @@ function guessCategory(name) {
   return 'Импорт MFP';
 }
 
+function slotKeyOf(mealRaw) {
+  return /breakfast|завтрак/i.test(mealRaw) ? 'breakfast'
+    : /lunch|обед/i.test(mealRaw) ? 'lunch'
+    : /dinner|ужин/i.test(mealRaw) ? 'dinner' : 'snack';
+}
+
 function uuid() { return crypto.randomUUID(); }
 const num = s => parseFloat(String(s ?? '').replace(',', '.')) || 0;
+const r1 = v => Math.round(v * 10) / 10;
 
-// ── разбор CSV ──
-function parseMfp(text) {
+// ── разбор CSV питания: детальный (блюда) или агрегатный (итоги приёма) ──
+// строки результата: { date, slotKey, name?, kcal, p, f, c } — name есть только в детальном
+function parseMeals(text) {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) throw new Error('в файле нет строк с едой');
   const head = splitCsvLine(lines[0]).map(h => h.toLowerCase());
   const col = (...names) => head.findIndex(h => names.some(n => h.includes(n)));
   const ci = {
-    date: col('date', 'дата'), meal: col('meal', 'приём'),
+    date: col('date', 'дата'), meal: col('meal', 'прием пищи', 'приём пищи'),
     name: col('food name', 'food', 'блюдо', 'название'),
     brand: col('brand', 'производитель'),
     kcal: col('calories', 'ккал', 'калор'),
     f: col('fat', 'жир'), c: col('carbohydrate', 'carbs', 'углев'), p: col('protein', 'белк', 'протеин'),
   };
-  if (ci.date < 0 || ci.name < 0 || ci.kcal < 0) throw new Error('не нашёл колонки «дата/блюдо/калории» — это точно выгрузка MFP?');
+  if (ci.date < 0 || ci.kcal < 0) throw new Error('не нашёл колонки «дата/калории» — это точно выгрузка MFP?');
+  const detailed = ci.name >= 0;
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
     const c = splitCsvLine(lines[i]);
     const date = mfpDate(c[ci.date] ?? '');
-    const name = c[ci.name] ?? '';
-    if (!date || !name) continue;
-    const mealRaw = ci.meal >= 0 ? (c[ci.meal] ?? '') : '';
-    const slotKey = /breakfast|завтрак/i.test(mealRaw) ? 'breakfast'
-      : /lunch|обед/i.test(mealRaw) ? 'lunch'
-      : /dinner|ужин/i.test(mealRaw) ? 'dinner' : 'snack';
-    rows.push({ date, slotKey, name, brand: ci.brand >= 0 ? (c[ci.brand] ?? '') : '',
+    if (!date) continue;
+    const slotKey = slotKeyOf(ci.meal >= 0 ? (c[ci.meal] ?? '') : '');
+    const base = { date, slotKey,
       kcal: num(c[ci.kcal]), p: ci.p >= 0 ? num(c[ci.p]) : 0,
-      f: ci.f >= 0 ? num(c[ci.f]) : 0, c: ci.c >= 0 ? num(c[ci.c]) : 0 });
+      f: ci.f >= 0 ? num(c[ci.f]) : 0, c: ci.c >= 0 ? num(c[ci.c]) : 0 };
+    if (detailed) {
+      const name = c[ci.name] ?? '';
+      if (!name) continue;
+      rows.push({ ...base, name, brand: ci.brand >= 0 ? (c[ci.brand] ?? '') : '' });
+    } else {
+      rows.push(base); // агрегат приёма целиком
+    }
   }
   if (!rows.length) throw new Error('не распознана ни одна строка');
-  return rows;
+  return { detailed, rows };
 }
 
-// ── сборка бэкапа ──
+// ── разбор CSV показателей (вес) ──
+function parseWeight(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const head = splitCsvLine(lines[0]).map(h => h.toLowerCase());
+  const d = head.findIndex(h => h.includes('дата') || h.includes('date'));
+  const w = head.findIndex(h => h.includes('вес') || h.includes('weight'));
+  if (d < 0 || w < 0) return [];
+  const out = [];
+  for (let i = 1; i < lines.length; i++) {
+    const c = splitCsvLine(lines[i]);
+    const date = mfpDate(c[d] ?? '');
+    const kg = num(c[w]);
+    if (date && kg > 0) out.push({ date, kg });
+  }
+  return out;
+}
+
+// ── CLI ──
 const args = argv.slice(2);
 const outIdx = args.indexOf('-o');
 const outFile = outIdx >= 0 ? args.splice(outIdx, 2)[1] : null;
-const [csvPath, backupPath] = args;
-if (!csvPath) { console.error('node tools/mfp2dd.mjs <food.csv> [backup.json] [-o out.json]'); exit(1); }
+let [srcPath, backupPath] = args;
+if (!srcPath) { console.error('node tools/mfp2dd.mjs <выгрузка.csv | папка> [backup.json] [-o out.json]'); exit(1); }
 
-const rows = parseMfp(readFileSync(csvPath, 'utf-8'));
+// папка → найти файлы питания и веса; иначе один файл
+let mealsPath = srcPath, weightPath = null;
+if (statSync(srcPath).isDirectory()) {
+  const files = readdirSync(srcPath);
+  mealsPath = files.find(f => /питани|food/i.test(f) && f.endsWith('.csv'));
+  weightPath = files.find(f => /показател|measurement/i.test(f) && f.endsWith('.csv')) ?? null;
+  if (!mealsPath) throw new Error('в папке нет CSV питания (ищу «…питани….csv» / food.csv)');
+  const dir = srcPath.replace(/[\\/]+$/, '');
+  mealsPath = `${dir}/${mealsPath}`;
+  if (weightPath) weightPath = `${dir}/${weightPath}`;
+  const skipped = files.filter(f => f.endsWith('.csv') && f !== mealsPath.split('/').pop() && f !== (weightPath?.split('/').pop() ?? ''));
+  if (skipped.length) console.log(`Папка: питание="${mealsPath.split('/').pop()}"${weightPath ? `, вес="${weightPath.split('/').pop()}"` : ''}; пропущено: ${skipped.join(', ')}`);
+}
+
+const { detailed, rows } = parseMeals(readFileSync(mealsPath, 'utf-8'));
+const weights = weightPath ? parseWeight(readFileSync(weightPath, 'utf-8')) : [];
 const dates = rows.map(r => r.date).sort();
 const from = dates[0], to = dates[dates.length - 1];
 
@@ -102,14 +151,28 @@ const foods = backup?.foods ? [...backup.foods] : [];
 const backupEntries = backup?.entries ?? [];
 const byKey = new Map(foods.map(f => [`${f.name.toLowerCase().trim()}|${(f.brand ?? '').toLowerCase().trim()}`, f]));
 const replaced = new Set(backupEntries.filter(e => !e.deletedAt && e.date >= from && e.date <= to).map(e => e.id));
-// замена диапазона: тестовые записи DD за даты CSV уходят, остальные — остаются
-const keptEntries = backupEntries.filter(e => !replaced.has(e.id));
+const keptEntries = backupEntries.filter(e => !replaced.has(e.id)); // тестовые записи DD за диапазон уходят
 
 const now = Date.now();
 let madeFoods = 0, reused = 0;
 const importedEntries = [];
-for (const r of rows) {
-  const key = `${r.name.toLowerCase().trim()}|${r.brand.toLowerCase().trim()}`;
+
+// агрегатный формат: по одному порционному продукту на тип приёма, КБЖУ — снапшотом записи
+const MEAL_FOOD = { breakfast: 'Завтрак (MFP)', lunch: 'Обед (MFP)', dinner: 'Ужин (MFP)', snack: 'Перекус (MFP)' };
+
+const foodFor = r => {
+  if (!detailed) {
+    const nm = MEAL_FOOD[r.slotKey];
+    let f = byKey.get(`${nm.toLowerCase()}|`);
+    if (f) return f;
+    f = { id: uuid(), name: nm, brand: undefined, category: 'Импорт MFP',
+      kcalPer100g: r.kcal, pPer100g: r.p, fPer100g: r.f, cPer100g: r.c,
+      unit: 'pc', source: 'mfp', ownerId: 'local', isPublic: false,
+      createdAt: now, updatedAt: now, deletedAt: null };
+    byKey.set(`${nm.toLowerCase()}|`, f); foods.push(f); madeFoods++;
+    return f;
+  }
+  const key = `${r.name.toLowerCase().trim()}|${(r.brand ?? '').toLowerCase().trim()}`;
   let f = byKey.get(key);
   if (!f) {
     f = { id: uuid(), name: r.name, brand: r.brand || undefined, category: guessCategory(r.name),
@@ -118,12 +181,35 @@ for (const r of rows) {
       createdAt: now, updatedAt: now, deletedAt: null };
     byKey.set(key, f); foods.push(f); madeFoods++;
   } else reused++;
+  return f;
+};
+
+for (const r of rows) {
+  const f = foodFor(r);
   const [slotId, defTime] = SLOT_DEFAULTS[r.slotKey] ?? ['slot-snack', '12:00'];
-  // граммовки в выгрузке MFP нет: строка = порция (граммы 100 в условных единицах порционных продуктов)
+  // граммовки в выгрузках MFP нет: строка/приём = порция (граммы 100 в условных единицах)
   importedEntries.push({ id: uuid(), userId: 'local', date: r.date, timeEaten: defTime, slotId,
     kind: 'food', refId: f.id, grams: 100,
-    snapshot: { kcal: Math.round(r.kcal), p: Math.round(r.p * 10) / 10, f: Math.round(r.f * 10) / 10, c: Math.round(r.c * 10) / 10 },
+    snapshot: { kcal: Math.round(r.kcal), p: r1(r.p), f: r1(r.f), c: r1(r.c) },
     createdAt: now, updatedAt: now, deletedAt: null });
+}
+
+// вес: мердж по дате с бэкапом
+const weightLogs = backup?.weightLogs ? [...backup.weightLogs] : [];
+let weightsAdded = 0;
+const wDates = new Set(weightLogs.filter(w => !w.deletedAt).map(w => w.date));
+for (const { date, kg } of weights) {
+  if (wDates.has(date)) continue;
+  weightLogs.push({ id: uuid(), userId: 'local', date, weightKg: kg, source: 'mfp',
+    createdAt: now, updatedAt: now, deletedAt: null });
+  weightsAdded++;
+}
+
+// профиль: текущий вес = последнее известное значение
+const profiles = backup?.profiles ? [...backup.profiles] : [];
+if (profiles.length && weights.length) {
+  const last = weights[weights.length - 1];
+  profiles[0] = { ...profiles[0], weightKg: last.kg };
 }
 
 const dump = {
@@ -131,10 +217,12 @@ const dump = {
   foods, recipes: backup?.recipes ?? [], savedMeals: backup?.savedMeals ?? [],
   slots: backup?.slots ?? [],
   entries: backup ? [...keptEntries, ...importedEntries] : importedEntries,
-  weightLogs: backup?.weightLogs ?? [], profiles: backup?.profiles ?? [],
+  weightLogs, profiles,
 };
 
+const sum = k => Math.round(rows.reduce((s, r) => s + r[k], 0));
 const out = outFile ?? `deepdish-mfp-${from}.json`;
 writeFileSync(out, JSON.stringify(dump, null, 1), 'utf-8');
-console.log(`MFP → Deep Dish: ${rows.length} записей за ${from}..${to}; продуктов: ${madeFoods} новых, ${reused} совпало с каталогом${backup ? `; заменено записей DD за диапазон: ${replaced.size}` : ' (бэкап не задан — только добавление)'}`);
+console.log(`Формат: ${detailed ? 'детальный (блюда)' : 'агрегатный (итоги приёмов)'}; ${rows.length} приёмов за ${from}..${to} (${new Set(rows.map(r => r.date)).size} дней)`);
+console.log(`Суммарно: ${sum('kcal')} ккал · Б ${sum('p')} г · Ж ${sum('f')} г · У ${sum('c')} г; продуктов: ${madeFoods} новых${detailed ? `, ${reused} совпало` : ''}; вес: +${weightsAdded} записей${weights.length ? ` (последний ${weights[weights.length - 1].kg} кг)` : ''}${backup ? `; заменено записей DD за диапазон: ${replaced.size}` : ' (бэкап не задан — только добавление)'}`);
 console.log(`Файл: ${out} — залить в приложении: Настройки → Данные → Импорт JSON`);

@@ -51,7 +51,7 @@ export interface Entry {
 
 export interface WeightLog {
   id: string; userId: string; date: string; weightKg: number; bodyFatPct?: number;
-  source: 'manual' | 'health';
+  source: 'manual' | 'health' | 'mfp';
   createdAt: number; updatedAt: number; deletedAt: number | null;
 }
 
