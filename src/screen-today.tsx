@@ -44,7 +44,9 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-28" {...swipe}>
-      <div className="flex items-center justify-between mb-4 px-1">
+      {/* дата — в центре шапки; стрелки обнимают её, лого — у правого края */}
+      <div className="flex items-center mb-4 px-1">
+        <div className="flex-1" />
         <div className="flex items-center">
           <button className="dd-arrow" onClick={() => { setDate(shiftISO(date, -1)); setDir(1); }} aria-label="Предыдущий день">‹</button>
           <button onClick={() => setCalOpen(true)} className="text-left px-0.5">
@@ -52,12 +54,14 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
           </button>
           <button className="dd-arrow" onClick={() => { setDate(shiftISO(date, 1)); setDir(-1); }} aria-label="Следующий день">›</button>
         </div>
-        <div className="flex items-center gap-1.5" style={{ color: 'var(--acc-fg)' }}>
-          <svg width="20" height="20" viewBox="0 0 96 96" style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx="48" cy="48" r="38" fill="none" stroke="var(--tr)" strokeWidth="12" />
-            <circle cx="48" cy="48" r="38" fill="none" stroke="var(--acc)" strokeWidth="12" strokeLinecap="round" strokeDasharray="172 239" />
-          </svg>
-          <span className="text-[16px] font-bold tracking-tight" style={{ color: 'var(--tx)' }}>deep dish</span>
+        <div className="flex-1 flex justify-end">
+          <div className="flex items-center gap-1.5" style={{ color: 'var(--acc-fg)' }}>
+            <svg width="20" height="20" viewBox="0 0 96 96" style={{ transform: 'rotate(-90deg)' }}>
+              <circle cx="48" cy="48" r="38" fill="none" stroke="var(--tr)" strokeWidth="12" />
+              <circle cx="48" cy="48" r="38" fill="none" stroke="var(--acc)" strokeWidth="12" strokeLinecap="round" strokeDasharray="172 239" />
+            </svg>
+            <span className="text-[16px] font-bold tracking-tight" style={{ color: 'var(--tx)' }}>deep dish</span>
+          </div>
         </div>
       </div>
 

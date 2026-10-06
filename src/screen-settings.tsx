@@ -3,9 +3,9 @@ import React, { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
 import type { Slot } from './db';
-import { PALETTES, type DeviceSettings, todayISO, fromISO, MONTHS } from './lib';
-import { exportJSON, exportCSV, download, wipeAll, track, importJSONText, parseMfpCsv, applyMfpImport, type MfpPreview } from './store';
-import { Segmented, Confirm, Modal, Toggle } from './ui';
+import { PALETTES, type DeviceSettings, todayISO } from './lib';
+import { exportJSON, exportCSV, download, wipeAll, track, importJSONText } from './store';
+import { Segmented, Confirm, Modal } from './ui';
 
 export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
   settings: DeviceSettings; setSettings: (s: DeviceSettings) => void; onRestartOnboarding: () => void;
@@ -14,16 +14,10 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
   const slots = useLiveQuery(async () =>
     (await db.slots.filter(s => !s.deletedAt).toArray()).sort((a, b) => a.sortOrder - b.sortOrder), [], [] as Slot[]);
 
-  // импорт: JSON-бэкап и CSV из MyFitnessPal
+  // импорт JSON-бэкапа (в т.ч. сконвертированного из MFP агентом — конвертация вне приложения)
   const fileJson = useRef<HTMLInputElement>(null);
-  const fileMfp = useRef<HTMLInputElement>(null);
-  const [mfpPrev, setMfpPrev] = useState<MfpPreview | null>(null);
-  const [mfpReplace, setMfpReplace] = useState(true);
-  const [mfpBusy, setMfpBusy] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [importErr, setImportErr] = useState(false);
-
-  const ruDate = (iso: string) => { const d = fromISO(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
 
   async function onJsonFile(f: File) {
     try {
@@ -32,20 +26,6 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
       setImportErr(false);
       setImportMsg(`Бэкап восстановлен: ${parts.join(', ') || 'файл пуст'}.`);
     } catch (e) { setImportErr(true); setImportMsg(`Импорт не удался: ${(e as Error).message}.`); }
-  }
-  async function onMfpFile(f: File) {
-    try { setMfpPrev(await parseMfpCsv(await f.text())); }
-    catch (e) { setImportErr(true); setImportMsg(`Файл не распознан: ${(e as Error).message}.`); }
-  }
-  async function doMfpApply() {
-    if (!mfpPrev || mfpBusy) return;
-    setMfpBusy(true);
-    try {
-      const r = await applyMfpImport(mfpPrev, mfpReplace);
-      setMfpPrev(null); setImportErr(false);
-      setImportMsg(`Из MFP импортировано: ${r.entries} записей, ${r.foods} новых продуктов.`);
-    } catch (e) { setMfpPrev(null); setImportErr(true); setImportMsg(`Импорт не удался: ${(e as Error).message}.`); }
-    setMfpBusy(false);
   }
 
   return (
@@ -90,14 +70,10 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
           action={<button className="dd-link-btn" onClick={() => exportJSON().then(b => download(b, `deepdish-${todayISO()}.json`))}>→</button>} />
         <Row label="Экспорт CSV (еда)" hint="для Excel"
           action={<button className="dd-link-btn" onClick={() => exportCSV().then(b => download(b, `deepdish-eda-${todayISO()}.csv`))}>→</button>} />
-        <Row label="Импорт JSON (восстановление)" hint="из файла бэкапа"
+        <Row label="Импорт JSON (восстановление)" hint="бэкап или файл из MFP-конвертера"
           action={<button className="dd-link-btn" onClick={() => fileJson.current?.click()}>→</button>} />
-        <Row label="Импорт из MFP (CSV)" hint="история из выгрузки MyFitnessPal"
-          action={<button className="dd-link-btn" onClick={() => fileMfp.current?.click()}>→</button>} />
         <input ref={fileJson} type="file" accept=".json,application/json" hidden
           onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onJsonFile(f); }} />
-        <input ref={fileMfp} type="file" accept=".csv,text/csv,text/plain" hidden
-          onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onMfpFile(f); }} />
         <Row label="Пройти онбординг заново" hint="как пользоваться + установка"
           action={<button className="dd-link-btn" onClick={onRestartOnboarding}>→</button>} />
         <Row label="Удалить все данные" hint="дневник, каталог, профиль — без возврата"
@@ -107,27 +83,6 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
       <p className="text-[10px] mt-6 text-center" style={{ color: 'var(--mut)' }}>
         Deep Dish · v{__APP_VER__} · сборка {__APP_SHA__} · работает офлайн · синхронизация в M2
       </p>
-
-      <Modal open={!!mfpPrev} onClose={() => setMfpPrev(null)}>
-        {mfpPrev && (
-          <>
-            <p className="dd-modal-text">
-              Выгрузка MFP: <b>{mfpPrev.rows.length} записей</b> за {ruDate(mfpPrev.from)} — {ruDate(mfpPrev.to)}.
-              Продукты: {mfpPrev.newFoods} новых, {mfpPrev.reusedFoods} уже есть в каталоге.
-              Граммовки в выгрузке нет — каждая строка сохранится порцией с её КБЖУ.
-            </p>
-            <div className="flex items-center justify-between py-2">
-              <div className="text-sm">Заменить записи Deep Dish за эти даты</div>
-              <Toggle on={mfpReplace} onChange={setMfpReplace} />
-            </div>
-            <div className="dd-modal-row">
-              <button className="dd-action strong" disabled={mfpBusy} onClick={doMfpApply}>
-                {mfpBusy ? 'Импортирую…' : 'Импортировать'}
-              </button>
-            </div>
-          </>
-        )}
-      </Modal>
 
       <Modal open={!!importMsg} onClose={() => { if (!importErr) location.reload(); else setImportMsg(null); }}>
         <p className="dd-modal-text">{importMsg}{!importErr && ' Экран перезагрузится.'}</p>
