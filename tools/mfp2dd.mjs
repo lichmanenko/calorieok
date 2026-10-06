@@ -150,10 +150,14 @@ if (backupPath && backup?.app !== 'deep-dish') throw new Error('backup.json — 
 const foods = backup?.foods ? [...backup.foods] : [];
 const backupEntries = backup?.entries ?? [];
 const byKey = new Map(foods.map(f => [`${f.name.toLowerCase().trim()}|${(f.brand ?? '').toLowerCase().trim()}`, f]));
-const replaced = new Set(backupEntries.filter(e => !e.deletedAt && e.date >= from && e.date <= to).map(e => e.id));
-const keptEntries = backupEntries.filter(e => !replaced.has(e.id)); // тестовые записи DD за диапазон уходят
-
 const now = Date.now();
+const replaced = new Set(backupEntries.filter(e => !e.deletedAt && e.date >= from && e.date <= to).map(e => e.id));
+// Замена диапазона: тестовые записи DD за даты выгрузки НЕ выбрасываются из файла, а помечаются
+// удалёнными (tombstone). Импорт делает bulkPut по id → запись перезапишется удалённой, дублей
+// не останется; при необходимости восстановима агентом (снятым пометки).
+const finalBackupEntries = backupEntries.map(e =>
+  (replaced.has(e.id) && !e.deletedAt) ? { ...e, deletedAt: now, updatedAt: now } : e);
+
 let madeFoods = 0, reused = 0;
 const importedEntries = [];
 
@@ -216,7 +220,7 @@ const dump = {
   app: 'deep-dish', version: 1, exportedAt: new Date().toISOString(),
   foods, recipes: backup?.recipes ?? [], savedMeals: backup?.savedMeals ?? [],
   slots: backup?.slots ?? [],
-  entries: backup ? [...keptEntries, ...importedEntries] : importedEntries,
+  entries: backup ? [...finalBackupEntries, ...importedEntries] : importedEntries,
   weightLogs, profiles,
 };
 
@@ -224,5 +228,5 @@ const sum = k => Math.round(rows.reduce((s, r) => s + r[k], 0));
 const out = outFile ?? `deepdish-mfp-${from}.json`;
 writeFileSync(out, JSON.stringify(dump, null, 1), 'utf-8');
 console.log(`Формат: ${detailed ? 'детальный (блюда)' : 'агрегатный (итоги приёмов)'}; ${rows.length} приёмов за ${from}..${to} (${new Set(rows.map(r => r.date)).size} дней)`);
-console.log(`Суммарно: ${sum('kcal')} ккал · Б ${sum('p')} г · Ж ${sum('f')} г · У ${sum('c')} г; продуктов: ${madeFoods} новых${detailed ? `, ${reused} совпало` : ''}; вес: +${weightsAdded} записей${weights.length ? ` (последний ${weights[weights.length - 1].kg} кг)` : ''}${backup ? `; заменено записей DD за диапазон: ${replaced.size}` : ' (бэкап не задан — только добавление)'}`);
+console.log(`Суммарно: ${sum('kcal')} ккал · Б ${sum('p')} г · Ж ${sum('f')} г · У ${sum('c')} г; продуктов: ${madeFoods} новых${detailed ? `, ${reused} совпало` : ''}; вес: +${weightsAdded} записей${weights.length ? ` (последний ${weights[weights.length - 1].kg} кг)` : ''}${backup ? `; тестовых записей DD за диапазон помечено удалёнными: ${replaced.size}` : ' (бэкап не задан — только добавление)'}`);
 console.log(`Файл: ${out} — залить в приложении: Настройки → Данные → Импорт JSON`);
