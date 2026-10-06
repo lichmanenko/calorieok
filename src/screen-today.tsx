@@ -18,13 +18,17 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
   useEffect(() => { ensureDayNorma(date).then(setNorma); }, [date, profile?.updatedAt]);
 
   const [dir, setDir] = useState<0 | -1 | 1>(0);
+  const [ringMode, setRingMode] = useState<'kcal' | 'macro'>(localStorage.getItem('dd-ringmode') === 'macro' ? 'macro' : 'kcal');
+  function toggleRingMode() {
+    setRingMode(m => { const v = m === 'kcal' ? 'macro' : 'kcal'; localStorage.setItem('dd-ringmode', v); return v; });
+    track('ring_mode_tap');
+  }
   const [calOpen, setCalOpen] = useState(false);
-  const [saveSlot, setSaveSlot] = useState<Slot | null>(null);
-  const [mealName, setMealName] = useState('');
+  const [slotInfo, setSlotInfo] = useState<Slot | null>(null);
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const [confirmDel, setConfirmDel] = useState<Entry | null>(null);
   const [explain, setExplain] = useState<null | { title: string; text: string }>(null);
-  const [whyOpen, setWhyOpen] = useState(false);
+  const [goalInfo, setGoalInfo] = useState(false);
   const weights = useLiveQuery(() => getWeights(), [], [] as WeightPoint[]);
   const forecast = useLiveQuery(() => weightForecast(), [], null);
   const goalProgress = useMemo(() => {
@@ -37,7 +41,7 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
     const total = start - profile.goalWeightKg;
     if (total <= 0) return null;
     const done = Math.max(0, Math.min(1, (start - cur) / total));
-    return { pct: Math.round(done * 100), start, cur, goal: profile.goalWeightKg };
+    return { pct: Math.round(done * 100), start, cur, goal: profile.goalWeightKg, leftKg: Math.max(0, Math.round((cur - profile.goalWeightKg) * 10) / 10) };
   }, [weights, forecast, profile?.goalWeightKg, profile?.goal]);
 
   const totals = useMemo(() => entries.reduce((s, e) => ({
@@ -87,22 +91,28 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
           </div>
         )}
         <div className="dd-card p-5 mb-3 flex items-center gap-5">
-          <Ring percent={percent}>
+          <button aria-label="Переключить кольцо" onClick={toggleRingMode} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+          {ringMode === 'kcal' ? (
+            <Ring percent={percent}>
             <div className="text-lg font-extrabold dd-num">{fmt(rest)}</div>
             <div className="text-[10px]" style={{ color: 'var(--mut)' }}>осталось</div>
-          </Ring>
+            </Ring>
+          ) : (
+            <MacroRing p={totals.p * 4} f={totals.f * 9} c={totals.c * 4} cap={target}>
+              <div className="text-lg font-extrabold dd-num">{fmt(rest)}</div>
+              <div className="text-[10px]" style={{ color: 'var(--mut)' }}>осталось</div>
+            </MacroRing>
+          )}
+          </button>
           <div className="min-w-0">
             <div className="text-xl font-bold dd-num">{fmt(totals.kcal)} ккал</div>
-            <div className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--mut)' }}>
-              <span>из {target} · {percent}%</span>
-              <button className="dd-info" style={{ width: 22, height: 22, fontSize: 11 }} aria-label="Почему такая норма"
-                onClick={() => setWhyOpen(true)}>ⓘ</button>
-              {norma?.basis === 'adaptive' && <span className="dd-chip-adaptive">тренд</span>}
-            </div>
+            <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>из {target} · {percent}%</div>
             {percent > 100 && <div className="text-xs mt-1" style={{ color: 'var(--warn)' }}>↑ перебор на {fmt(totals.kcal - target)}</div>}
           </div>
           {goalProgress && (
-            <GoalRing pct={goalProgress.pct} onTap={() => setWhyOpen(true)} />
+            <div className="relative">
+              <GoalRing pct={goalProgress.pct} leftKg={goalProgress.leftKg} hasTrend={!!forecast} onTap={() => setGoalInfo(true)} />
+            </div>
           )}
         </div>
 
@@ -133,15 +143,14 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
           return (
             <div key={slot.id} className="dd-card px-4 pt-4 pb-3 mb-2.5" onClick={() => es.length === 0 && onAdd(slot)}>
               <div className="flex justify-between items-baseline mb-1">
-                <div className="text-[15px] font-semibold flex items-baseline gap-2">
+                <button className="text-[15px] font-semibold flex items-baseline gap-2 dd-slot-link"
+                  onClick={e => { e.stopPropagation(); setSlotInfo(slot); }}>
                   <span>{slot.emoji}</span>{slot.name}
-                </div>
-                <div className="text-xs dd-num flex items-center gap-1.5" style={{ color: 'var(--mut)' }}>
-                  {es.length > 0 && (
-                    <button className="dd-slot-save" title="Сохранить приём одним тапом"
-                      onClick={e => { e.stopPropagation(); setMealName(`мой ${slot.name.toLowerCase()}`); setSaveSlot(slot); }}>💾</button>
-                  )}
-                  {es.length ? `${fmt(sum)} ккал` : 'ничего'}
+                </button>
+                <div className="text-xs dd-num flex items-center" style={{ color: 'var(--mut)' }}>
+                  {es.length
+                    ? <span className="dd-num font-bold" style={{ fontSize: 13.5, color: 'var(--tx)' }}>{fmt(sum)} ккал</span>
+                    : 'ничего'}
                 </div>
               </div>
               {es.map(e => (
@@ -166,47 +175,31 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
         </div>
       </Modal>
 
-      <Modal open={!!saveSlot} onClose={() => setSaveSlot(null)}>
-        <div className="text-[15px] font-bold mb-2">Сохранить приём</div>
-        <input className="dd-input" value={mealName} onChange={e => setMealName(e.target.value)}
-          placeholder="название, например «мой завтрак»" />
-        <p className="dd-modal-text">Позже найдёшь его на экране добавления — один тап, и все позиции встанут в приём.</p>
-        <div className="dd-modal-row">
-          <button className="dd-action strong" onClick={async () => {
-            const s2 = saveSlot!;
-            const n = await saveMealFromSlot(mealName.trim() || `мой ${s2.name.toLowerCase()}`, s2.id, date);
-            setSaveSlot(null);
-            if (!n) track('meal_save_empty');
-          }}>Сохранить</button>
-        </div>
-      </Modal>
 
-      <Modal open={whyOpen} onClose={() => setWhyOpen(false)}>
-        <div className="text-[15px] font-bold mb-2">Почему такая норма</div>
+      <SlotInfoSheet
+        open={!!slotInfo} slot={slotInfo} date={date}
+        entries={(slotInfo ? entries.filter(e => e.slotId === slotInfo.id) : [])}
+        macroPct={profile?.macroPct}
+        onClose={() => setSlotInfo(null)}
+        onSave={async name => { if (slotInfo) { await saveMealFromSlot(name, slotInfo.id, date); setSlotInfo(null); } }}
+      />
+
+      <Modal open={goalInfo} onClose={() => setGoalInfo(false)}>
+        <div className="text-[15px] font-bold mb-2">Путь к цели</div>
         {(() => {
-          const d = norma?.detail;
-          if (!d) return <p className="dd-modal-text">Заполни профиль — норма посчитается автоматически.</p>;
-          const rows: Array<[string, string]> = [
-            ['Базовый обмен', `${fmt(d.bmr ?? 0)} ккал — столько тратит тело в покое (Миффлин)`],
-            ['Расход по формуле', `${fmt(d.tdeeFormula ?? 0)} ккал — с учётом активности из профиля`],
-          ];
-          if (d.tdeeAdaptive) rows.push(['Твой факт из истории', `${fmt(d.tdeeAdaptive)} ккал — по окну ${d.windowDays} дн (${d.coverage}% дней с записями): ел в среднем ${fmt(d.intakeAvg ?? 0)}, вес изменился на ${String(d.weightDelta).replace('-', '−').replace('.', ',')} кг`]);
-          rows.push(d.adj ? ['Поправка на цель', `${d.adj > 0 ? '+' : '−'}${fmt(Math.abs(d.adj))} ккал — темп из профиля`] : ['Поправка на цель', 'нет — режим «держать»']);
-          rows.push(['Итог на день', `${fmt(norma!.kcal)} ккал${norma!.basis === 'adaptive' ? ' — формула, поправленная твоим фактом' : ' — по формуле'}`]);
-          return (
-            <>
-              {rows.map(([k, v]) => (
-                <div key={k} className="py-1.5" style={{ borderBottom: '1px solid var(--tr)' }}>
-                  <div className="text-[11px]" style={{ color: 'var(--mut)' }}>{k}</div>
-                  <div className="text-[13px]">{v}</div>
-                </div>
-              ))}
-              <p className="dd-modal-text" style={{ marginTop: 8 }}>Норма зафиксирована за {norma!.date} и не пересчитается задним числом.</p>
-            </>
-          );
+          if (!goalProgress) return <p className="dd-modal-text">Задай цель по весу в профиле — здесь появится прогресс.</p>;
+          if (!forecast) return <p className="dd-modal-text">
+            Тренд веса пока не ведёт к цели {fmt(goalProgress.goal)} кг — сейчас он {goalProgress.cur > goalProgress.start ? 'выше старта' : 'стоит на месте'}.
+            Кольцо оживёт, когда динамика повернёт к цели.
+          </p>;
+          return <p className="dd-modal-text">
+            Старт {String(goalProgress.start).replace('.', ',')} кг → сейчас по тренду {String(goalProgress.cur).replace('.', ',')} кг, осталось {String(goalProgress.leftKg).replace('.', ',')} кг.
+            Темп тренда −{String(forecast.slopePerWeek).replace('.', ',')} кг/нед — при нём цель {fmt(goalProgress.goal)} кг примерно {ruDate(forecast.etaDate)}.
+            Это прогноз по сглаженной линии, а не по отдельным взвешиваниям.
+          </p>;
         })()}
         <div className="dd-modal-row">
-          <button className="dd-action strong" onClick={() => setWhyOpen(false)}>Понятно</button>
+          <button className="dd-action strong" onClick={() => setGoalInfo(false)}>Понятно</button>
         </div>
       </Modal>
 
@@ -220,22 +213,119 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
   );
 }
 
+/** Шит приёма: состав, статистика, сбалансированность, сохранение как приём */
+function SlotInfoSheet({ open, slot, entries, macroPct, onClose, onSave }: {
+  open: boolean; slot: Slot | null; entries: Entry[]; date: string;
+  macroPct?: { p: number; f: number; c: number };
+  onClose: () => void; onSave: (name: string) => Promise<void>;
+}) {
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (slot) setName(`мой ${slot.name.toLowerCase()}`); }, [slot?.id]);
+  if (!slot) return null;
+  const t = entries.reduce((s, e) => ({ kcal: s.kcal + e.snapshot.kcal, p: s.p + e.snapshot.p, f: s.f + e.snapshot.f, c: s.c + e.snapshot.c }), { kcal: 0, p: 0, f: 0, c: 0 });
+  const kc = { p: t.p * 4, f: t.f * 9, c: t.c * 4 };
+  const sum = Math.max(1, kc.p + kc.f + kc.c);
+  const pct = profile0(macroPct);
+  const share = { p: kc.p / sum, f: kc.f / sum, c: kc.c / sum };
+  const verdicts: string[] = [];
+  if (t.kcal === 0) verdicts.push('приём пустой');
+  else {
+    if (Math.abs(share.p - pct.p / 100) > 0.12) verdicts.push(share.p > pct.p / 100 ? `белка больше плана (${Math.round(share.p * 100)}% против ${pct.p}%)` : `белка меньше плана (${Math.round(share.p * 100)}% против ${pct.p}%)`);
+    if (Math.abs(share.f - pct.f / 100) > 0.12) verdicts.push(share.f > pct.f / 100 ? `жиров больше плана (${Math.round(share.f * 100)}% против ${pct.f}%)` : `жиров меньше плана (${Math.round(share.f * 100)}% против ${pct.f}%)`);
+    if (Math.abs(share.c - pct.c / 100) > 0.12) verdicts.push(share.c > pct.c / 100 ? `углеводов больше плана (${Math.round(share.c * 100)}% против ${pct.c}%)` : `углеводов меньше плана (${Math.round(share.c * 100)}% против ${pct.c}%)`);
+    if (!verdicts.length) verdicts.push('по белкам-жирам-углеводам — как по плану');
+  }
+  return (
+    <Sheet open={open} onClose={onClose} title={`${slot.emoji} ${slot.name}`}
+      note={`${entries.length} поз. · ${fmt(t.kcal)} ккал · Б ${fmt(t.p)} · Ж ${fmt(t.f)} · У ${fmt(t.c)}`}>
+      <div className="mb-3">
+        {entries.map(e => (
+          <SlotLine key={e.id} e={e} />
+        ))}
+      </div>
+      <div className="text-[12.5px] mb-4" style={{ color: 'var(--mut)' }}>
+            Сбалансированность: {verdicts.join('; ')}.
+      </div>
+      <div className="dd-input-row items-end">
+        <div className="flex-1 min-w-0">
+          <div className="dd-field-label">Сохранить как приём</div>
+          <input className="dd-input" value={name} onChange={e => setName(e.target.value)} placeholder="мой завтрак" />
+        </div>
+        <button className="dd-action strong" style={{ flex: 'none' }} disabled={saving || entries.length === 0}
+          onClick={async () => { setSaving(true); await onSave(name.trim() || `мой ${slot.name.toLowerCase()}`); setSaving(false); }}>
+          {saving ? 'Сохраняю…' : 'Сохранить приём'}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+function profile0(macroPct?: { p: number; f: number; c: number }) { return macroPct ?? { p: 25, f: 30, c: 45 }; }
+
+function SlotLine({ e }: { e: Entry }) {
+  const [name, setName] = useState('');
+  useEffect(() => {
+    let alive = true;
+    (async () => { const f = e.kind === 'food' ? await db.foods.get(e.refId) : await db.recipes.get(e.refId); if (alive) setName(f?.name ?? '—'); })();
+    return () => { alive = false; };
+  }, [e]);
+  return (
+    <div className="flex justify-between items-baseline text-[13px] py-1" style={{ borderBottom: '1px solid var(--tr)' }}>
+      <span>{name}<span style={{ color: 'var(--mut)' }}> · {fmt(e.grams)} г</span></span>
+      <span className="dd-num text-[11.5px]" style={{ color: 'var(--mut)' }}>{fmt(e.snapshot.kcal)}</span>
+    </div>
+  );
+}
+
+/** Кольцо с сегментами Б/Ж/У: дуга делится по вкладу групп в съеденный калораж */
+function MacroRing({ p, f, c, cap, children }: { p: number; f: number; c: number; cap: number; children: React.ReactNode }) {
+  const size = 108, r = 46, sw = 10;
+  const circ = 2 * Math.PI * r;
+  const total = Math.max(1, p + f + c);
+  const fill = Math.min(100, cap > 0 ? (p + f + c) / cap * 100 : 0);
+  const seg = (v: number) => (circ * fill / 100) * (v / total);
+  const gap = 2;
+  const parts: Array<[number, string]> = [[Math.max(0, seg(p) - gap), 'var(--acc)'], [Math.max(0, seg(f) - gap), 'var(--warn)'], [Math.max(0, seg(c) - gap), 'var(--acc2)']];
+  let acc = 0;
+  const arcs = parts.map(([len, color]) => {
+    const a = acc; acc += len + gap;
+    return <circle key={color} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw}
+      strokeDasharray={`${len} ${circ - len}`} strokeDashoffset={-a} strokeLinecap="butt" />;
+  });
+  return (
+    <div className="dd-ring" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--tr)" strokeWidth={sw} />
+        {arcs}
+      </svg>
+      <div className="dd-ring-val">{children}</div>
+    </div>
+  );
+}
+
 /** Второе кольцо: прогресс к цели по весу (M1) */
-function GoalRing({ pct, onTap }: { pct: number; onTap: () => void }) {
+function GoalRing({ pct, leftKg, hasTrend, onTap }: { pct: number; leftKg: number; hasTrend: boolean; onTap: () => void }) {
   const R = 15.9; // r=15.9 → длина окружности 100
   return (
     <button onClick={onTap} aria-label="Прогресс к цели по весу"
-      className="flex flex-col items-center gap-0.5" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-      <svg width="46" height="46" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="18" cy="18" r={R} fill="none" stroke="var(--tr)" strokeWidth="3.5" />
-        <circle cx="18" cy="18" r={R} fill="none" stroke="var(--acc2)" strokeWidth="3.5" strokeLinecap="round"
-          strokeDasharray={`${Math.min(100, pct)} 100`} />
+      className="flex items-center justify-center" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+      <svg width="62" height="62" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="18" cy="18" r={R} fill="none" stroke="var(--tr)" strokeWidth="3" />
+        {hasTrend && pct > 0 && (
+          <circle cx="18" cy="18" r={R} fill="none" stroke="var(--ok)" strokeWidth="3" strokeLinecap="round"
+            strokeDasharray={`${Math.min(100, pct)} 100`} />
+        )}
       </svg>
-      <span className="text-[10px] dd-num" style={{ color: 'var(--mut)' }}>{pct}%</span>
-      <span className="text-[9px]" style={{ color: 'var(--mut)' }}>к цели</span>
+      <span className="absolute dd-num" style={{ fontSize: 11.5, fontWeight: 700, color: hasTrend ? 'var(--tx)' : 'var(--mut)' }}>
+        {hasTrend ? String(Math.round(leftKg * 10) / 10).replace('.', ',') : '—'}
+      </span>
     </button>
   );
 }
+
+const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+function ruDate(iso: string) { const d = new Date(iso + 'T00:00:00'); return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`; }
 
 async function dbSlots(): Promise<Slot[]> {
   const { db } = await import('./db');
@@ -278,7 +368,7 @@ function EntryLine({ e, slot, showTime, onClick }: { e: Entry; slot: Slot; showT
         {showT && <span className="dd-num" style={{ color: 'var(--acc-fg)' }}>{e.timeEaten} · </span>}
         {name}{qtyLabel}
       </span>
-      <span className="dd-num font-medium">{fmt(e.snapshot.kcal)}</span>
+      <span className="dd-num text-[11.5px]" style={{ color: 'var(--mut)' }}>{fmt(e.snapshot.kcal)}</span>
     </div>
   );
 }

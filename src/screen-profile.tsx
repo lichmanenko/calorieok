@@ -1,10 +1,10 @@
 // Профиль: биометрия (с текущим весом), формула, цель + норма с раскладкой; «Сохранить» активна только при изменениях
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getProfile, saveProfile, calcNorma, track, getWeights, weightForecast, type WeightPoint } from './store';
+import { getProfile, saveProfile, calcNorma, track, getWeights, weightForecast, ensureDayNorma, type WeightPoint } from './store';
 import type { Profile } from './db';
-import { Segmented } from './ui';
-import { fmt } from './lib';
+import { Segmented, Modal } from './ui';
+import { fmt, todayISO } from './lib';
 import { NumField } from './onboarding';
 
 const MACRO_PRESETS = [
@@ -26,6 +26,9 @@ export function ProfileScreen() {
   const [saved, setSaved] = useState(false);
   const weights = useLiveQuery(() => getWeights(), [], [] as WeightPoint[]);
   const forecast = useLiveQuery(() => weightForecast(), [], null);
+  const [dayNorma, setDayNorma] = useState<import('./db').DayNorma | null>(null);
+  const [whyOpen, setWhyOpen] = useState(false);
+  useEffect(() => { ensureDayNorma(todayISO()).then(setDayNorma); }, [saved]);
 
   useEffect(() => { getProfile().then(p => { setPr(p ?? DEFAULT); setBaseline(JSON.stringify(p ?? DEFAULT)); }); }, []);
   if (!pr) return <div className="min-h-screen" />;
@@ -61,10 +64,23 @@ export function ProfileScreen() {
 
       <div className="dd-card p-4 mb-4">
         <div className="dd-field-label" style={{ marginTop: 0 }}>Активность</div>
-        <Segmented value={pr.activity} onChange={v => set({ activity: v })} options={[
-          { value: 'sedentary', label: 'сидячая' }, { value: 'light', label: 'лёгкая' },
-          { value: 'moderate', label: 'средняя' }, { value: 'active', label: 'высокая' }, { value: 'very_active', label: 'очень высокая' },
-        ]} />
+        {dayNorma?.basis === 'adaptive' ? (
+          <>
+            <div className="dd-seg">
+              <button className="on">⚡ тренд</button>
+            </div>
+            <div className="text-[11px] mt-1.5" style={{ color: 'var(--mut)' }}>
+              расход берётся из твоей истории (что ел + как менялся вес) — ручная активность не нужна
+            </div>
+          </>
+        ) : (
+          <div className="opacity-95">
+            <Segmented value={pr.activity} onChange={v => set({ activity: v })} options={[
+              { value: 'sedentary', label: 'сидячая' }, { value: 'light', label: 'лёгкая' },
+              { value: 'moderate', label: 'средняя' }, { value: 'active', label: 'высокая' }, { value: 'very_active', label: 'очень высокая' },
+            ]} />
+          </div>
+        )}
       </div>
 
       <div className="dd-card p-4 mb-4">
@@ -106,17 +122,29 @@ export function ProfileScreen() {
       {norma ? (
         <div className="dd-card p-5 text-center mb-4">
           <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--mut)' }}>Дневная норма</div>
-          <div className="text-3xl font-extrabold dd-num mt-1" style={{ color: 'var(--acc-fg)' }}>{fmt(norma.kcal)}</div>
-          <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>ккал · Б {fmt(norma.p)} г · Ж {fmt(norma.f)} г · У {fmt(norma.c)} г</div>
-          <div className="text-[10px] mt-2 dd-num" style={{ color: 'var(--mut)' }}>
-            расход ≈ {norma.tdee}{norma.adj !== 0 ? ` → ${norma.adj > 0 ? '+' : ''}${norma.adj} по темпу` : ' · без поправки'} · не ниже {Math.round(norma.bmr * 1.1)}
-          </div>
+          <button onClick={() => setWhyOpen(true)} aria-label="Почему такая норма"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'block', width: '100%' }}>
+            <div className="text-3xl font-extrabold dd-num mt-1" style={{ color: 'var(--acc-fg)' }}>
+              {fmt(dayNorma?.kcal ?? norma.kcal)}
+              {dayNorma?.basis === 'adaptive' && <span className="dd-chip-adaptive" style={{ marginLeft: 8, verticalAlign: 'middle' }}>⚡ тренд</span>}
+            </div>
+          </button>
+          <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>ккал · Б {fmt(dayNorma?.p ?? norma.p)} г · Ж {fmt(dayNorma?.f ?? norma.f)} г · У {fmt(dayNorma?.c ?? norma.c)} г</div>
+          <button onClick={() => setWhyOpen(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+            <div className="text-[10px] mt-2 dd-num" style={{ color: 'var(--mut)' }}>
+              {dayNorma?.detail?.tdeeAdaptive
+                ? `формула ${fmt(dayNorma.detail.tdeeFormula ?? 0)} → факт ${fmt(dayNorma.detail.tdeeAdaptive)} по твоей истории · почему — тап`
+                : `расход ≈ ${norma.tdee}${norma.adj !== 0 ? ` → ${norma.adj > 0 ? '+' : '−'}${Math.abs(norma.adj)} по темпу` : ' · без поправки'} · почему — тап`}
+            </div>
+          </button>
         </div>
       ) : (
         <div className="dd-card p-4 mb-4 text-center text-xs" style={{ color: 'var(--mut)' }}>
           укажи текущий вес — посчитается норма
         </div>
       )}
+
+      <WhyNorma open={whyOpen} onClose={() => setWhyOpen(false)} norma={dayNorma} fallback={norma} />
 
       <button className="dd-action strong" disabled={!dirty} onClick={save}>{saved ? '✓ Сохранено' : 'Сохранить'}</button>
     </div>
@@ -184,3 +212,35 @@ function weightTrendLocal(points: WeightPoint[]): { slope: number; intercept: nu
 const fmtLocal = (v: number) => String(v).replace('.', ',');
 const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 function ruDate(iso: string) { const d = new Date(iso + 'T00:00:00'); return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`; }
+
+
+function WhyNorma({ open, onClose, norma, fallback }: {
+  open: boolean; onClose: () => void;
+  norma: import('./db').DayNorma | null;
+  fallback: { kcal: number; p: number; f: number; c: number; bmr: number; tdee: number; adj: number } | null;
+}) {
+  const d = norma?.detail;
+  const kcal = norma?.kcal ?? fallback?.kcal ?? 0;
+  const rows: Array<[string, string]> = [];
+  if (d?.bmr) rows.push(['Базовый обмен', `${fmt(d.bmr)} ккал — столько тратит тело в покое (Миффлин)`]);
+  if (d?.tdeeFormula) rows.push(['Расход по формуле', `${fmt(d.tdeeFormula)} ккал — с учётом активности из профиля`]);
+  if (d?.tdeeAdaptive) rows.push(['Твой факт из истории', `${fmt(d.tdeeAdaptive)} ккал — по окну ${d.windowDays} дн (${d.coverage}% дней с записями): ел в среднем ${fmt(d.intakeAvg ?? 0)}, вес изменился на ${String(d.weightDelta).replace('-', '−').replace('.', ',')} кг`]);
+  if (d) { if (d.adj) rows.push(['Поправка на цель', `${d.adj > 0 ? '+' : '−'}${fmt(Math.abs(d.adj))} ккал — темп из профиля`]); }
+  else if (fallback?.adj) rows.push(['Поправка на цель', `${fallback.adj > 0 ? '+' : '−'}${fmt(Math.abs(fallback.adj))} ккал — темп из профиля`]);
+  rows.push(['Итог на день', `${fmt(kcal)} ккал${norma?.basis === 'adaptive' ? ' — формула, поправленная твоим фактом' : ' — по формуле'}`]);
+  return (
+    <Modal open={open} onClose={onClose}>
+      <div className="text-[15px] font-bold mb-2">Почему такая норма</div>
+      {rows.map(([k, v]) => (
+        <div key={k} className="py-1.5" style={{ borderBottom: '1px solid var(--tr)' }}>
+          <div className="text-[11px]" style={{ color: 'var(--mut)' }}>{k}</div>
+          <div className="text-[13px]">{v}</div>
+        </div>
+      ))}
+      {norma && <p className="dd-modal-text" style={{ marginTop: 8 }}>Норма зафиксирована за {norma.date} и не пересчитается задним числом.</p>}
+      <div className="dd-modal-row">
+        <button className="dd-action strong" onClick={onClose}>Понятно</button>
+      </div>
+    </Modal>
+  );
+}
