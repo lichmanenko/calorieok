@@ -57,7 +57,7 @@ export type CatalogItem =
 export async function getCatalog(query: string): Promise<CatalogItem[]> {
   const q = query.trim().toLowerCase();
   const isBarcode = /^\d{8,13}$/.test(q);
-  const foods = (await db.foods.filter(f => !f.deletedAt).toArray()).filter(f =>
+  const foods = (await db.foods.filter(f => !f.deletedAt && !f.hidden).toArray()).filter(f =>
     !q || f.name.toLowerCase().includes(q) || (f.brand ?? '').toLowerCase().includes(q)
     || (isBarcode && (f.barcode ?? '').includes(q)));
   const recipes = (await db.recipes.filter(r => !r.deletedAt).toArray()).filter(r =>

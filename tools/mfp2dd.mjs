@@ -122,6 +122,8 @@ function parseWeight(text) {
 const args = argv.slice(2);
 const outIdx = args.indexOf('-o');
 const outFile = outIdx >= 0 ? args.splice(outIdx, 2)[1] : null;
+const untilIdx = args.indexOf('--until');
+const until = untilIdx >= 0 ? args.splice(untilIdx, 2)[1] : null; // YYYY-MM-DD, включительно
 let [srcPath, backupPath] = args;
 if (!srcPath) { console.error('node tools/mfp2dd.mjs <выгрузка.csv | папка> [backup.json] [-o out.json]'); exit(1); }
 
@@ -139,8 +141,11 @@ if (statSync(srcPath).isDirectory()) {
   if (skipped.length) console.log(`Папка: питание="${mealsPath.split('/').pop()}"${weightPath ? `, вес="${weightPath.split('/').pop()}"` : ''}; пропущено: ${skipped.join(', ')}`);
 }
 
-const { detailed, rows } = parseMeals(readFileSync(mealsPath, 'utf-8'));
-const weights = weightPath ? parseWeight(readFileSync(weightPath, 'utf-8')) : [];
+const parsed = parseMeals(readFileSync(mealsPath, 'utf-8'));
+const rows = until ? parsed.rows.filter(r => r.date <= until) : parsed.rows;
+const { detailed } = parsed;
+let weights = weightPath ? parseWeight(readFileSync(weightPath, 'utf-8')) : [];
+if (until) weights = weights.filter(w => w.date <= until);
 const dates = rows.map(r => r.date).sort();
 const from = dates[0], to = dates[dates.length - 1];
 
@@ -171,7 +176,7 @@ const foodFor = r => {
     if (f) return f;
     f = { id: uuid(), name: nm, brand: undefined, category: 'Импорт MFP',
       kcalPer100g: r.kcal, pPer100g: r.p, fPer100g: r.f, cPer100g: r.c,
-      unit: 'pc', source: 'mfp', ownerId: 'local', isPublic: false,
+      unit: 'pc', source: 'mfp', ownerId: 'local', isPublic: false, hidden: true,
       createdAt: now, updatedAt: now, deletedAt: null };
     byKey.set(`${nm.toLowerCase()}|`, f); foods.push(f); madeFoods++;
     return f;
@@ -227,6 +232,6 @@ const dump = {
 const sum = k => Math.round(rows.reduce((s, r) => s + r[k], 0));
 const out = outFile ?? `deepdish-mfp-${from}.json`;
 writeFileSync(out, JSON.stringify(dump, null, 1), 'utf-8');
-console.log(`Формат: ${detailed ? 'детальный (блюда)' : 'агрегатный (итоги приёмов)'}; ${rows.length} приёмов за ${from}..${to} (${new Set(rows.map(r => r.date)).size} дней)`);
+console.log(`Формат: ${detailed ? 'детальный (блюда)' : 'агрегатный (итоги приёмов)'}; ${rows.length} приёмов за ${from}..${to} (${new Set(rows.map(r => r.date)).size} дней)${until ? ` — обрезано до ${until} включительно` : ''}`);
 console.log(`Суммарно: ${sum('kcal')} ккал · Б ${sum('p')} г · Ж ${sum('f')} г · У ${sum('c')} г; продуктов: ${madeFoods} новых${detailed ? `, ${reused} совпало` : ''}; вес: +${weightsAdded} записей${weights.length ? ` (последний ${weights[weights.length - 1].kg} кг)` : ''}${backup ? `; тестовых записей DD за диапазон помечено удалёнными: ${replaced.size}` : ' (бэкап не задан — только добавление)'}`);
 console.log(`Файл: ${out} — залить в приложении: Настройки → Данные → Импорт JSON`);

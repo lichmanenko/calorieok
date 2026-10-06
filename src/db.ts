@@ -12,6 +12,8 @@ export interface Food {
   unit?: 'g' | 'pc';
   portionG?: number; portionLabel?: string; barcode?: string;
   source: FoodSource; ownerId: string; isPublic: boolean; star?: boolean;
+  /** служебный продукт (импорт MFP): в каталоге и поиске не показывается, записи отображаются */
+  hidden?: boolean;
   createdAt: number; updatedAt: number; deletedAt: number | null;
 }
 
