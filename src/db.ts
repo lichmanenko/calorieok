@@ -3,7 +3,7 @@ import productsSeed from '../data/products_v2.json';
 
 // ── Типы данных (SPEC §3) ──────────────────────────────────────────────────────
 
-export type FoodSource = 'system' | 'custom' | 'off' | 'fork';
+export type FoodSource = 'system' | 'custom' | 'off' | 'fork' | 'mfp';
 
 export interface Food {
   id: string; name: string; brand?: string; category: string;

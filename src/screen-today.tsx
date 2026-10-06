@@ -2,8 +2,8 @@
 import React, { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Entry, type Slot } from './db';
-import { getEntries, getProfile, calcNorma, deleteEntry, saveEntry, track } from './store';
-import { shiftISO, todayISO, humanDate, headDateSub, fromISO, MONTHS_NOM, fmt } from './lib';
+import { getEntries, getProfile, calcNorma, deleteEntry, saveEntry, track, saveMealFromSlot } from './store';
+import { shiftISO, todayISO, humanDate, fromISO, MONTHS_NOM, fmt } from './lib';
 import { Ring, Sheet, useSwipe, Slide, Confirm, cx, Modal } from './ui';
 
 export function TodayScreen({ date, setDate, onAdd, showTime }: {
@@ -16,6 +16,8 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
 
   const [dir, setDir] = useState<0 | -1 | 1>(0);
   const [calOpen, setCalOpen] = useState(false);
+  const [saveSlot, setSaveSlot] = useState<Slot | null>(null);
+  const [mealName, setMealName] = useState('');
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const [confirmDel, setConfirmDel] = useState<Entry | null>(null);
   const [explain, setExplain] = useState<null | { title: string; text: string }>(null);
@@ -47,7 +49,6 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
           <button className="dd-arrow" onClick={() => { setDate(shiftISO(date, -1)); setDir(1); }} aria-label="Предыдущий день">‹</button>
           <button onClick={() => setCalOpen(true)} className="text-left px-0.5">
             <div className="text-[18px] font-bold tracking-tight leading-tight">{humanDate(date)}</div>
-            {headDateSub(date) && <div className="text-[10.5px]" style={{ color: 'var(--mut)' }}>{headDateSub(date)}</div>}
           </button>
           <button className="dd-arrow" onClick={() => { setDate(shiftISO(date, 1)); setDir(-1); }} aria-label="Следующий день">›</button>
         </div>
@@ -108,7 +109,11 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
                 <div className="text-[15px] font-semibold flex items-baseline gap-2">
                   <span>{slot.emoji}</span>{slot.name}
                 </div>
-                <div className="text-xs dd-num" style={{ color: 'var(--mut)' }}>
+                <div className="text-xs dd-num flex items-center gap-1.5" style={{ color: 'var(--mut)' }}>
+                  {es.length > 0 && (
+                    <button className="dd-slot-save" title="Сохранить приём одним тапом"
+                      onClick={e => { e.stopPropagation(); setMealName(`мой ${slot.name.toLowerCase()}`); setSaveSlot(slot); }}>💾</button>
+                  )}
                   {es.length ? `${fmt(sum)} ккал` : 'ничего'}
                 </div>
               </div>
@@ -131,6 +136,21 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
         <p className="dd-modal-text">{explain?.text}</p>
         <div className="dd-modal-row">
           <button className="dd-action strong" onClick={() => setExplain(null)}>Понятно</button>
+        </div>
+      </Modal>
+
+      <Modal open={!!saveSlot} onClose={() => setSaveSlot(null)}>
+        <div className="text-[15px] font-bold mb-2">Сохранить приём</div>
+        <input className="dd-input" value={mealName} onChange={e => setMealName(e.target.value)}
+          placeholder="название, например «мой завтрак»" />
+        <p className="dd-modal-text">Позже найдёшь его на экране добавления — один тап, и все позиции встанут в приём.</p>
+        <div className="dd-modal-row">
+          <button className="dd-action strong" onClick={async () => {
+            const s2 = saveSlot!;
+            const n = await saveMealFromSlot(mealName.trim() || `мой ${s2.name.toLowerCase()}`, s2.id, date);
+            setSaveSlot(null);
+            if (!n) track('meal_save_empty');
+          }}>Сохранить</button>
         </div>
       </Modal>
 

@@ -60,16 +60,6 @@ export function ProfileScreen() {
           { value: 'sedentary', label: 'сидячая' }, { value: 'light', label: 'лёгкая' },
           { value: 'moderate', label: 'средняя' }, { value: 'active', label: 'высокая' }, { value: 'very_active', label: 'очень высокая' },
         ]} />
-
-        <div className="dd-field-label">Расход энергии</div>
-        <Segmented value={pr.formula} onChange={v => set({ formula: v })} options={[
-          { value: 'mifflin', label: 'формула (Миффлин)' }, { value: 'manual', label: 'вручную' },
-        ]} />
-        {pr.formula === 'manual' && (
-          <div className="mt-2">
-            <NumField label="расход (TDEE), ккал/день" value={pr.manualTdee} onChange={n => set({ manualTdee: n })} />
-          </div>
-        )}
       </div>
 
       <div className="dd-card p-4 mb-4">

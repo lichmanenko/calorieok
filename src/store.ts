@@ -1,6 +1,6 @@
 // Слой доступа к данным + расчёты нормы + трекер метрик
 import { db, newId, LOCAL_USER, type Entry, type Food, type Profile, type Recipe, type Slot, type KbjuSnapshot } from './db';
-import { todayISO, nowHM, kbjuSuspicious, fmt } from './lib';
+import { todayISO, nowHM, kbjuSuspicious, fmt, guessCategory } from './lib';
 
 // ── Метрики ──
 const SESSION = newId();
@@ -207,6 +207,178 @@ export async function wipeAll() {
     await Promise.all([db.foods.clear(), db.recipes.clear(), db.savedMeals.clear(), db.slots.clear(), db.entries.clear(), db.weightLogs.clear(), db.profiles.clear()]);
   });
   track('wipe_all');
+}
+
+// ── Сохранённые приёмы («мой завтрак» одним тапом) ────────────────────────────
+
+export async function saveMealFromSlot(name: string, slotId: string, date: string): Promise<number> {
+  const es = (await db.entries.where('date').equals(date).toArray())
+    .filter(e => e.slotId === slotId && !e.deletedAt && e.kind === 'food');
+  if (!es.length) return 0;
+  await db.savedMeals.add({
+    id: newId(), name, items: es.map(e => ({ foodId: e.refId, grams: e.grams })),
+    slotHint: slotId, ownerId: LOCAL_USER, createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null,
+  });
+  track('meal_saved', { items: es.length });
+  return es.length;
+}
+
+export async function applyMeal(mealId: string, date: string, slot: Slot): Promise<number> {
+  const meal = await db.savedMeals.get(mealId);
+  if (!meal || meal.deletedAt) return 0;
+  let n = 0;
+  for (const it of meal.items) {
+    const f = await db.foods.get(it.foodId);
+    if (!f || f.deletedAt) continue;
+    await addEntry({ date, slot, kind: 'food', refId: it.foodId, grams: it.grams,
+      per100: { kcal: f.kcalPer100g, p: f.pPer100g, f: f.fPer100g, c: f.cPer100g } });
+    n++;
+  }
+  if (n) track('meal_applied', { items: n });
+  return n;
+}
+
+export async function deleteMeal(id: string) {
+  await db.savedMeals.update(id, { deletedAt: Date.now(), updatedAt: Date.now() });
+}
+
+// ── Импорт JSON (восстановление бэкапа) ───────────────────────────────────────
+
+export async function importJSONText(text: string): Promise<Record<string, number>> {
+  const d = JSON.parse(text) as Record<string, unknown>;
+  if (d?.app !== 'deep-dish') throw new Error('это не бэкап Deep Dish');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tabs: Array<[any, string]> = [
+    [db.foods, 'foods'], [db.recipes, 'recipes'], [db.savedMeals, 'savedMeals'],
+    [db.slots, 'slots'], [db.entries, 'entries'], [db.weightLogs, 'weightLogs'], [db.profiles, 'profiles'],
+  ];
+  const counts: Record<string, number> = {};
+  for (const [t, k] of tabs) {
+    const arr = d[k];
+    if (!Array.isArray(arr) || !arr.length) continue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (t as any).bulkPut(arr);
+    counts[k] = arr.length;
+  }
+  track('import_json', counts);
+  return counts;
+}
+
+// ── Импорт из MyFitnessPal (CSV-выгрузка Premium) ─────────────────────────────
+
+export interface MfpRow { date: string; slotId: string; name: string; brand: string; kcal: number; p: number; f: number; c: number; }
+export interface MfpPreview { rows: MfpRow[]; newFoods: number; reusedFoods: number; from: string; to: string; }
+
+function splitCsvLine(line: string): string[] {
+  const out: string[] = []; let cur = ''; let q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) {
+      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+// MFP пишет даты как MM/DD/YYYY (или DD/MM/YYYY в локали) — различаем по невозможному месяцу
+function mfpDate(raw: string): string {
+  const m = raw.trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (!m) return '';
+  let a = m[1], b = m[2];
+  const y = m[3].length === 2 ? '20' + m[3] : m[3];
+  if (parseInt(a, 10) > 12 && parseInt(b, 10) <= 12) { const t = a; a = b; b = t; }
+  const p = (n: string) => n.padStart(2, '0');
+  return `${y}-${p(a)}-${p(b)}`;
+}
+
+const MFP_SLOTS: Array<[RegExp, string]> = [
+  [/breakfast|завтрак/i, 'slot-breakfast'],
+  [/lunch|обед/i, 'slot-lunch'],
+  [/dinner|ужин/i, 'slot-dinner'],
+];
+
+export async function parseMfpCsv(text: string): Promise<MfpPreview> {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) throw new Error('в файле нет строк с едой');
+  const head = splitCsvLine(lines[0]).map(h => h.toLowerCase());
+  const col = (...names: string[]) => head.findIndex(h => names.some(n => h.includes(n)));
+  const ci = {
+    date: col('date', 'дата'), meal: col('meal', 'приём'),
+    name: col('food name', 'food', 'блюдо', 'название'),
+    brand: col('brand', 'производитель'),
+    kcal: col('calories', 'ккал', 'калор'),
+    f: col('fat', 'жир'), c: col('carbohydrate', 'carbs', 'углев'), p: col('protein', 'белк', 'протеин'),
+  };
+  if (ci.date < 0 || ci.name < 0 || ci.kcal < 0) throw new Error('не нашёл колонки «дата/блюдо/калории» — это точно выгрузка MFP?');
+  const num = (s: string | undefined) => parseFloat((s ?? '').replace(',', '.')) || 0;
+  const keyOf = (n: string, b: string) => `${n.toLowerCase().trim()}|${b.toLowerCase().trim()}`;
+  const existKeys = new Set((await db.foods.toArray()).map(f => keyOf(f.name, f.brand ?? '')));
+  const uniq = new Set<string>();
+  let reused = 0;
+  const rows: MfpRow[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const c = splitCsvLine(lines[i]);
+    const date = mfpDate(c[ci.date] ?? '');
+    const name = c[ci.name] ?? '';
+    if (!date || !name) continue;
+    const mealRaw = ci.meal >= 0 ? (c[ci.meal] ?? '') : '';
+    const slotId = MFP_SLOTS.find(([re]) => re.test(mealRaw))?.[1] ?? 'slot-snack';
+    const brand = ci.brand >= 0 ? (c[ci.brand] ?? '') : '';
+    const k = keyOf(name, brand);
+    if (!uniq.has(k)) { uniq.add(k); if (existKeys.has(k)) reused++; }
+    rows.push({ date, slotId, name, brand,
+      kcal: num(c[ci.kcal]), p: ci.p >= 0 ? num(c[ci.p]) : 0,
+      f: ci.f >= 0 ? num(c[ci.f]) : 0, c: ci.c >= 0 ? num(c[ci.c]) : 0 });
+  }
+  if (!rows.length) throw new Error('не распознана ни одна строка');
+  const dates = rows.map(r => r.date).sort();
+  return { rows, newFoods: uniq.size - reused, reusedFoods: reused, from: dates[0], to: dates[dates.length - 1] };
+}
+
+export async function applyMfpImport(pv: MfpPreview, replaceRange: boolean): Promise<{ entries: number; foods: number }> {
+  let made = 0, n = 0;
+  await db.transaction('rw', [db.foods, db.entries, db.slots], async () => {
+    const slots = await getSlots();
+    const slotById = new Map(slots.map(s => [s.id, s]));
+    const byKey = new Map<string, Food>((await db.foods.toArray())
+      .map(f => [`${f.name.toLowerCase().trim()}|${(f.brand ?? '').toLowerCase().trim()}`, f] as const));
+    if (replaceRange) {
+      const inRange = (await db.entries.toArray()).filter(e => e.date >= pv.from && e.date <= pv.to);
+      await db.entries.bulkDelete(inRange.map(e => e.id));
+    }
+    const getFood = (r: MfpRow): Food => {
+      const key = `${r.name.toLowerCase().trim()}|${r.brand.toLowerCase().trim()}`;
+      const ex = byKey.get(key);
+      if (ex) return ex;
+      const f: Food = {
+        id: newId(), name: r.name, brand: r.brand || undefined,
+        category: guessCategory(r.name) ?? 'Импорт MFP',
+        kcalPer100g: r.kcal, pPer100g: r.p, fPer100g: r.f, cPer100g: r.c,
+        unit: 'pc', source: 'mfp', ownerId: LOCAL_USER, isPublic: false,
+        createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null,
+      };
+      byKey.set(key, f); made++;
+      return f;
+    };
+    const pendingFoods: Food[] = [];
+    for (const r of pv.rows) {
+      const slot = slotById.get(r.slotId);
+      if (!slot) continue;
+      const f = getFood(r);
+      if (!pendingFoods.includes(f)) pendingFoods.push(f);
+      // граммовки в выгрузке MFP нет: каждая строка — порция; снапшот записи = КБЖУ строки
+      await addEntry({ date: r.date, slot, kind: 'food', refId: f.id, grams: 100,
+        per100: { kcal: r.kcal, p: r.p, f: r.f, c: r.c } });
+      n++;
+    }
+    if (pendingFoods.length) await db.foods.bulkPut(pendingFoods);
+  });
+  track('import_mfp', { entries: n, foods: made });
+  return { entries: n, foods: made };
 }
 
 export const TODAY = () => todayISO();
