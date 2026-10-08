@@ -1,4 +1,5 @@
 // Слой доступа к данным + расчёты нормы + трекер метрик
+import { bannerAction } from './banner';
 import { db, newId, LOCAL_USER, type Entry, type Food, type Profile, type Recipe, type Slot, type KbjuSnapshot, type DayNorma } from './db';
 import { todayISO, nowHM, kbjuSuspicious, fmt, normE } from './lib';
 
@@ -42,6 +43,7 @@ export async function addEntry(params: {
     createdAt: Date.now(), updatedAt: Date.now(), deletedAt: null,
   };
   await db.entries.add(entry);
+  bannerAction();
   return entry;
 }
 

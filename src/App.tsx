@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadSettings, saveSettings, applyTheme, RADIALS, todayISO, type DeviceSettings } from './lib';
 import { track } from './store';
+import { computeBanner, dismissBanner, BANNER_CHECK_MS, type BannerInfo } from './banner';
 import { Onboarding } from './onboarding';
 import { TodayScreen } from './screen-today';
 import { AddScreen } from './screen-add';
@@ -20,6 +21,7 @@ export default function App() {
   const [addOpen, setAddOpen] = useState(false);
   const [addSlot, setAddSlot] = useState<Slot | null>(null);
   const [onboarding, setOnboarding] = useState(false);
+  const [banner, setBanner] = useState<BannerInfo | null>(null);
 
   const dark = useMemo(() => {
     if (settings.theme !== 'auto') return settings.theme === 'dark';
@@ -35,6 +37,16 @@ export default function App() {
   }, [settings.palette, settings.theme]);
 
   useEffect(() => { track('app_open', { online: navigator.onLine, cold: true }); }, []);
+
+  // Мотивационные баннеры: при старте и каждые 5 минут (окно срыва зависит от времени)
+  useEffect(() => {
+    if (onboarding) return;
+    let alive = true;
+    const check = () => computeBanner().then(b => { if (alive && b) setBanner(b); });
+    check();
+    const t = setInterval(check, BANNER_CHECK_MS);
+    return () => { alive = false; clearInterval(t); };
+  }, [onboarding]);
 
   // Автоскрытие таб-бара: скролл вниз или 4 с бездействия; возврат — тап по нижней зоне или скролл вверх
   const [barHidden, setBarHidden] = useState(false);
@@ -106,6 +118,13 @@ export default function App() {
             />
           )}
           {tab === 'profile' && <ProfileScreen />}
+          {banner && !addOpen && (
+            <div className={'dd-banner' + (banner.kind === 'warn' ? ' warn' : '')} role="status">
+              <div className="text-[13px] flex-1" style={{ lineHeight: 1.4 }}>{banner.text}</div>
+              <button className="dd-banner-x" aria-label="Закрыть"
+                onClick={() => { dismissBanner(banner.kind); setBanner(null); }}>✕</button>
+            </div>
+          )}
           {tab === 'settings' && (
             <SettingsScreen settings={settings} setSettings={setSettings} onRestartOnboarding={() => setOnboarding(true)} />
           )}

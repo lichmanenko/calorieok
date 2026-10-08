@@ -1,16 +1,36 @@
 // Настройки: гамма, тема, отображение времени, времена слотов, онбординг, экспорт/импорт, сброс
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
 import type { Slot } from './db';
 import { PALETTES, type DeviceSettings, todayISO } from './lib';
-import { exportJSON, exportCSV, download, wipeAll, track } from './store';
-import { Segmented, Confirm } from './ui';
+import { loadFlags, saveFlags, detectDangerWindows, type FlagSettings } from './banner';
+import { exportJSON, exportCSV, download, wipeAll, track, importJSONText } from './store';
+import { Segmented, Confirm, Modal, Toggle } from './ui';
 
 export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
   settings: DeviceSettings; setSettings: (s: DeviceSettings) => void; onRestartOnboarding: () => void;
 }) {
   const [confirmWipe, setConfirmWipe] = useState(false);
+  // импорт JSON (перенос каталога между устройствами)
+  const fileJson = useRef<HTMLInputElement>(null);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [importErr, setImportErr] = useState(false);
+
+  async function onJsonFile(f: File) {
+    try {
+      const counts = await importJSONText(await f.text());
+      const parts = Object.entries(counts).map(([k, v]) => `${v} ${k === 'entries' ? 'записей' : k === 'foods' ? 'продуктов' : k}`);
+      setImportErr(false);
+      setImportMsg(`Загружено: ${parts.join(', ') || 'файл пуст'}.`);
+    } catch (e) { setImportErr(true); setImportMsg(`Импорт не удался: ${(e as Error).message}.`); }
+  }
+
+  // мотивационные баннеры: тумблеры + красные флаг-категории
+  const [flags, setFlags] = useState<FlagSettings>(() => loadFlags());
+  const cats = useLiveQuery(async () => [...new Set((await db.foods.filter(f => !f.deletedAt).toArray()).map(f => f.category))].sort(), [], [] as string[]);
+  const [dangerWins] = useState<Array<{ hour: number; count: number }>>([]);
+  detectDangerWindows().then(w => { dangerWins.splice(0, dangerWins.length, ...w); });
   const slots = useLiveQuery(async () =>
     (await db.slots.filter(s => !s.deletedAt).toArray()).sort((a, b) => a.sortOrder - b.sortOrder), [], [] as Slot[]);
 
@@ -38,6 +58,35 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
         ]} />
       </div>
 
+      <div className="dd-field-label">Мотивация</div>
+      <div className="dd-card px-4 py-1">
+        <div className="flex justify-between items-center py-3">
+          <div className="text-sm">Баннер «так держать» <span style={{ color: 'var(--mut)' }}>— утром, когда темп не хуже плана</span></div>
+          <Toggle on={flags.praise} onChange={v => { const f = { ...flags, praise: v }; setFlags(f); saveFlags(f); }} />
+        </div>
+        <div className="flex justify-between items-center py-3">
+          <div className="text-sm">Баннер «осторожно» <span style={{ color: 'var(--mut)' }}>— за час до обычного «лишнего»</span></div>
+          <Toggle on={flags.warn} onChange={v => { const f = { ...flags, warn: v }; setFlags(f); saveFlags(f); }} />
+        </div>
+        <div className="py-3">
+          <div className="text-sm mb-1.5">Красные флаги <span style={{ color: 'var(--mut)' }}>— категории «угощений» для окна срыва</span></div>
+          <div className="flex flex-wrap gap-1.5">
+            {(cats ?? []).map(c => (
+              <button key={c} className={flags.cats.includes(c) ? 'dd-cat-chip on' : 'dd-cat-chip'}
+                onClick={() => {
+                  const cs = flags.cats.includes(c) ? flags.cats.filter(x => x !== c) : [...flags.cats, c];
+                  const f = { ...flags, cats: cs }; setFlags(f); saveFlags(f);
+                }}>{c}</button>
+            ))}
+          </div>
+          {dangerWins.length > 0 && (
+            <div className="text-[11px] mt-2" style={{ color: 'var(--mut)' }}>
+              найденные окна: {dangerWins.map(w => `${w.hour}:00 (${w.count}×)`).join(' · ')}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="dd-field-label">Времена приёмов пищи (подставляются при вводе)</div>
       <div className="dd-card px-4 py-1">
         {(slots ?? []).map(s => (
@@ -57,6 +106,10 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
           action={<button className="dd-link-btn" onClick={() => exportJSON().then(b => download(b, `deepdish-${todayISO()}.json`))}>→</button>} />
         <Row label="Экспорт CSV (еда)" hint="для Excel"
           action={<button className="dd-link-btn" onClick={() => exportCSV().then(b => download(b, `deepdish-eda-${todayISO()}.csv`))}>→</button>} />
+        <Row label="Импорт JSON (перенос каталога)" hint="с другого устройства или от агента"
+          action={<button className="dd-link-btn" onClick={() => fileJson.current?.click()}>→</button>} />
+        <input ref={fileJson} type="file" accept=".json,application/json" hidden
+          onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onJsonFile(f); }} />
         <Row label="Пройти онбординг заново" hint="как пользоваться + установка"
           action={<button className="dd-link-btn" onClick={onRestartOnboarding}>→</button>} />
         <Row label="Удалить все данные" hint="дневник, каталог, профиль — без возврата"
@@ -66,6 +119,13 @@ export function SettingsScreen({ settings, setSettings, onRestartOnboarding }: {
       <p className="text-[10px] mt-6 text-center" style={{ color: 'var(--mut)' }}>
         Deep Dish · v{__APP_VER__} · сборка {__APP_SHA__} · работает офлайн · синхронизация в M2
       </p>
+
+      <Modal open={!!importMsg} onClose={() => { if (!importErr) location.reload(); else setImportMsg(null); }}>
+        <p className="dd-modal-text">{importMsg}{!importErr && ' Экран перезагрузится.'}</p>
+        <div className="dd-modal-row">
+          <button className="dd-action strong" onClick={() => { if (!importErr) location.reload(); else setImportMsg(null); }}>Готово</button>
+        </div>
+      </Modal>
 
       <Confirm open={confirmWipe} text="Точно удалить ВСЁ? Дневник, каталог и профиль исчезнут безвозвратно."
         okLabel="Удалить всё" onCancel={() => setConfirmWipe(false)}
