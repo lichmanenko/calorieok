@@ -1,6 +1,6 @@
 // Слой доступа к данным + расчёты нормы + трекер метрик
 import { db, newId, LOCAL_USER, type Entry, type Food, type Profile, type Recipe, type Slot, type KbjuSnapshot, type DayNorma } from './db';
-import { todayISO, nowHM, kbjuSuspicious, fmt } from './lib';
+import { todayISO, nowHM, kbjuSuspicious, fmt, normE } from './lib';
 
 // ── Метрики ──
 const SESSION = newId();
@@ -58,7 +58,7 @@ export async function getCatalog(query: string): Promise<CatalogItem[]> {
   const q = query.trim().toLowerCase();
   const isBarcode = /^\d{8,13}$/.test(q);
   const foods = (await db.foods.filter(f => !f.deletedAt && !f.hidden).toArray()).filter(f =>
-    !q || f.name.toLowerCase().includes(q) || (f.brand ?? '').toLowerCase().includes(q)
+    !q || normE(f.name).includes(normE(q)) || normE(f.brand ?? '').includes(normE(q))
     || (isBarcode && (f.barcode ?? '').includes(q)));
   const recipes = (await db.recipes.filter(r => !r.deletedAt).toArray()).filter(r =>
     !q || r.name.toLowerCase().includes(q));
@@ -288,24 +288,55 @@ export async function ensureDayNorma(date: string): Promise<DayNorma | null> {
   return snap;
 }
 
-/** прогноз достижения цели по тренду (окно 56 дней) */
-export async function weightForecast(): Promise<{ slopePerWeek: number; etaDate: string; trendKg: number } | null> {
+/**
+ * Прогресс к цели (формула В.): целевая разница D0 = текущий − цель;
+ * прогнозный вес к целевой дате по тренду → прогнозная разница D1 = текущий − прогноз (min 0);
+ * выполнение = D1 / D0. Целевая дата фиксируется в профиле (дефолт — от темпа).
+ */
+export interface GoalProgress {
+  pct: number; startKg: number; goalKg: number; goalDate: string;
+  forecastKg: number; slopePerWeek: number; trendWindowDays: number;
+  /** true — дата уже зафиксирована в профиле; false — компонент должен сохранить дефолт (вне liveQuery) */
+  dateFixed: boolean;
+}
+
+export async function goalProgress(): Promise<GoalProgress | null> {
   const pr = await getProfile();
   if (!pr?.goalWeightKg || pr.goal === 'none' || pr.goal === 'maintain') return null;
   const weights = await getWeights();
   if (weights.length < 2) return null;
+  const cur = weights[weights.length - 1].kg;
   const last = weights[weights.length - 1].date;
-  const from = new Date(new Date(last + 'T00:00:00').getTime() - 55 * 86400000).toISOString().slice(0, 10);
+  const trendDays = 56;
+  const from = new Date(new Date(last + 'T00:00:00').getTime() - (trendDays - 1) * 86400000).toISOString().slice(0, 10);
   const win = weights.filter(w => w.date >= from);
   const tr = weightTrend(win);
-  if (!tr || tr.slope >= -0.001) return null; // не худеем — прогноза нет
+  if (!tr) return null;
+  // целевая дата: фиксируем при первом расчёте (дефолт — от темпа профиля)
+  let goalDate = pr.goalDateIso;
+  let dateFixed = true;
+  if (!goalDate) {
+    const pace = pr.paceKgPerWeek || 0.5;
+    const weeks = Math.max(1, Math.round(Math.abs(cur - pr.goalWeightKg) / pace));
+    const d = new Date(); d.setDate(d.getDate() + weeks * 7);
+    goalDate = d.toISOString().slice(0, 10);
+    dateFixed = false; // запись в профиле делает компонент (liveQuery read-only)
+  }
   const t0 = new Date(win[0].date).getTime();
-  const todayX = (new Date(todayISO() + 'T00:00:00').getTime() - t0) / 86400000;
-  const trendKg = tr.slope * todayX + tr.intercept;
-  const daysLeft = Math.round((trendKg - pr.goalWeightKg) / -tr.slope);
-  if (daysLeft <= 0 || daysLeft > 3 * 365) return null;
-  const eta = new Date(); eta.setDate(eta.getDate() + daysLeft);
-  return { slopePerWeek: Math.round(-tr.slope * 700) / 100, etaDate: eta.toISOString().slice(0, 10), trendKg: Math.round(trendKg * 10) / 10 };
+  const etaX = (new Date(goalDate + 'T00:00:00').getTime() - t0) / 86400000;
+  const forecastKg = tr.slope * etaX + tr.intercept;
+  const d0 = Math.max(0.001, cur - pr.goalWeightKg);
+  const d1 = Math.max(0, cur - forecastKg);
+  const pct = Math.max(0, Math.min(100, Math.round(d1 / d0 * 100)));
+  return { pct, startKg: cur, goalKg: pr.goalWeightKg, goalDate, dateFixed,
+    forecastKg: Math.round(forecastKg * 10) / 10, slopePerWeek: Math.round(-tr.slope * 700) / 100, trendWindowDays: trendDays };
+}
+
+/** прогноз даты достижения цели по тренду (для профиля) */
+export async function weightForecast(): Promise<{ slopePerWeek: number; etaDate: string; trendKg: number } | null> {
+  const g = await goalProgress();
+  if (!g || g.slopePerWeek <= 0) return null;
+  return { slopePerWeek: g.slopePerWeek, etaDate: g.goalDate, trendKg: g.forecastKg };
 }
 
 // ── Экспорт ──

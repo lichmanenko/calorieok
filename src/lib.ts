@@ -72,6 +72,9 @@ export function loadSettings(): DeviceSettings {
 export function saveSettings(s: DeviceSettings) { localStorage.setItem('dd-settings', JSON.stringify(s)); }
 
 // ── Даты ──
+/** нормализация поиска: ё -> е, нижний регистр */
+export const normE = (v: string) => v.toLowerCase().replace(/ё/g, 'е');
+
 export const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 export const MONTHS_NOM = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
 export const WD_SHORT = ['вс','пн','вт','ср','чт','пт','сб'];
@@ -106,7 +109,7 @@ export function headDateSub(iso: string): string {
 import categoryKeywords from '../data/category-keywords.json';
 export const CATEGORY_KEYWORDS = categoryKeywords as Array<{ cat: string; words: string[] }>;
 export function guessCategory(name: string): string | null {
-  const n = name.toLowerCase();
+  const n = normE(name);
   for (const { cat, words } of CATEGORY_KEYWORDS) {
     if (words.some(w => n.includes(w))) return cat;
   }
@@ -145,11 +148,7 @@ const ALCO_RE = /вино|пиво|водк|виски|коньяк|ром|дж�
 export function kbjuSuspicious(kcal: number, p: number, f: number, c: number, name: string): boolean {
   if (!kcal) return false;
   const est = p * 4 + c * 4 + f * 9;
-  const alcohol = ALCO_RE.test(name);
-  if (alcohol) {
-    // спирт ~7 ккал/г; допустим большой зазор
-    return est * 1.2 + 10 < kcal * 0.55; // грубая проверка «слишком мало» и для алкоголя
-  }
+  if (ALCO_RE.test(name)) return false; // алкоголь: 7 ккал/г не лезет в 4/4/9 — без предупреждений
   return Math.abs(est - kcal) / kcal > 0.25;
 }
 

@@ -80,6 +80,8 @@ export interface Profile {
   goalWeightKg?: number;
   /** распределение макросов: режим пресета или 'custom' с ручными процентами */
   macroMode?: 'balanced' | 'mfp' | 'protein' | 'custom';
+  /** целевая дата цели (YYYY-MM-DD); фиксируется автоматически от темпа, для кольца выполнения цели */
+  goalDateIso?: string;
   macroPct?: { p: number; f: number; c: number };
   updatedAt: number;
 }

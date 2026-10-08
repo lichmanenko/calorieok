@@ -157,7 +157,7 @@ function WeightCard({ weights, forecast }: { weights: WeightPoint[] | undefined;
   if (!weights || weights.length === 0) return null;
   // окно 365 дней; точки прореживаем до ~120
   const last = weights[weights.length - 1].date;
-  const from = new Date(new Date(last + 'T00:00:00').getTime() - 364 * 86400000).toISOString().slice(0, 10);
+  const from = new Date(new Date(last + 'T00:00:00').getTime() - 182 * 86400000).toISOString().slice(0, 10); // 6 месяцев
   const win = weights.filter(w => w.date >= from);
   const shown = win.length > 120 ? win.filter((_, i) => i % Math.ceil(win.length / 120) === 0 || i === win.length - 1) : win;
   const kgs = shown.map(w => w.kg);
@@ -171,12 +171,14 @@ function WeightCard({ weights, forecast }: { weights: WeightPoint[] | undefined;
   const yN = trend ? y(trend.slope * (shown.length - 1) + trend.intercept) : 0;
   const first = win[0].kg, cur = weights[weights.length - 1].kg;
   const delta = Math.round((cur - first) * 10) / 10;
+  const sorted = [...kgs].sort((a, b) => a - b);
+  const mid = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
   return (
     <div className="dd-card p-4 mb-4">
       <div className="flex justify-between items-baseline">
         <div className="dd-field-label" style={{ marginTop: 0 }}>Динамика веса</div>
         <div className="text-[11px] dd-num" style={{ color: delta > 0 ? 'var(--warn)' : 'var(--ok)' }}>
-          {delta > 0 ? '+' : ''}{delta} кг за год
+          {delta > 0 ? '+' : ''}{delta} кг за 6 мес
         </div>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 84 }}>
@@ -184,9 +186,10 @@ function WeightCard({ weights, forecast }: { weights: WeightPoint[] | undefined;
         {trend && <line x1={x(0)} y1={y0} x2={x(shown.length - 1)} y2={yN} stroke="var(--mut)" strokeWidth="1" strokeDasharray="4 4" />}
       </svg>
       <div className="flex justify-between text-[10px] dd-num" style={{ color: 'var(--mut)' }}>
-        <span>{fmtLocal(first)} → {fmtLocal(cur)} кг</span>
+        <span>мин {fmtLocal(Math.round(min * 10) / 10)} · медиана {fmtLocal(Math.round(mid * 10) / 10)} · макс {fmtLocal(Math.round(max * 10) / 10)} кг</span>
         <span>тренд {forecast ? `−${String(forecast.slopePerWeek).replace('.', ',')} кг/нед` : '—'}</span>
       </div>
+      <div className="text-[10px] mt-0.5" style={{ color: 'var(--mut)' }}>пунктир на графике — тренд (усреднённая прямая по взвешиваниям, без скачков воды и соли)</div>
       {forecast && (
         <div className="text-[11.5px] mt-1" style={{ color: 'var(--acc-fg)' }}>
           при таком темпе цель достигается ≈ {ruDate(forecast.etaDate)} (тренд-вес {fmtLocal(forecast.trendKg)} кг)

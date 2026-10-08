@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Slot, type SavedMeal } from './db';
 import { getCatalog, getRecent, lastGrams, toggleStar, saveCustomFood, saveRecipe, addEntry, applyMeal, deleteMeal, track, type CatalogItem } from './store';
-import { nowHM, kbjuSuspicious, fmt, guessCategory, lookupBarcode } from './lib';
+import { nowHM, kbjuSuspicious, fmt, normE, guessCategory, lookupBarcode } from './lib';
 import { Sheet, Modal, Confirm, Collapse, cx } from './ui';
 
 interface AddScreenProps {
@@ -29,7 +29,7 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
   const allSlots = useLiveQuery(() => db.slots.filter((s: Slot) => !s.deletedAt).sortBy('sortOrder'), [], [] as Slot[]);
 
   const searching = q.trim().length > 0;
-  const ql = q.trim().toLowerCase();
+  const ql = normE(q.trim());
 
   const { recentItems, starred } = useMemo(() => {
     const map = new Map((catalog ?? []).map(i => [`${i.kind}:${i.id}`, i]));
@@ -41,13 +41,13 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
   // При поиске: недавние совпадения отдельно, остальная выдача — отдельно.
   // Дубли между секциями исключены: продукт из «Недавних» не повторяется в «Проверенных».
   const recentMatches = useMemo(
-    () => (searching ? recentItems.filter(i => i.name.toLowerCase().includes(ql)).slice(0, 5) : []),
+    () => (searching ? recentItems.filter(i => normE(i.name).includes(ql)).slice(0, 5) : []),
     [searching, recentItems, ql]);
 
   const starredMatches = useMemo(() => {
     if (!searching) return [];
     const rm = new Set(recentMatches.map(i => `${i.kind}:${i.id}`));
-    return starred.filter(i => i.name.toLowerCase().includes(ql) && !rm.has(`${i.kind}:${i.id}`));
+    return starred.filter(i => normE(i.name).includes(ql) && !rm.has(`${i.kind}:${i.id}`));
   }, [searching, starred, ql, recentMatches]);
   const searchRest = useMemo(() => {
     if (!searching) return [];
@@ -62,7 +62,7 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
     return sum + (f ? f.per100.kcal * it.grams / 100 : 0);
   }, 0);
   const mealList = useMemo(
-    () => (searching ? (meals ?? []).filter(m => m.name.toLowerCase().includes(ql)) : meals ?? []),
+    () => (searching ? (meals ?? []).filter(m => normE(m.name).includes(ql)) : meals ?? []),
     [searching, meals, ql]);
 
   async function tapMeal(m: SavedMeal) {
@@ -94,7 +94,7 @@ export function AddScreen({ date, slot, onDone }: AddScreenProps) {
       {/* Sticky: панель кнопок + поиск */}
       <div className="dd-addhead">
         <div className="flex items-center gap-1 px-4 pt-5">
-          <button className="dd-link-btn" onClick={onDone}>←</button>
+          <button className="dd-arrow" onClick={onDone} aria-label="Назад">‹</button>
           <div className="flex-1" />
           <button className="dd-link-btn" onClick={() => setCreatingRecipe(true)}>🍳</button>
           <button className="dd-link-btn" onClick={() => setCreatingFood(true)}>＋ продукт</button>
@@ -582,13 +582,14 @@ function CreateRecipe({ open, onClose }: { open: boolean; onClose: () => void })
       {items.map((it, i) => {
         const fd = picked[i];
         return (
-          <div key={it.foodId} className="dd-item">
+          <div key={it.foodId} className="dd-item items-center" style={{ gap: 8 }}>
             <div className="flex-1 min-w-0">
               <div className="nm truncate">{fd?.name}</div>
-              <input className="dd-input dd-num mt-1" style={{ padding: '8px 10px', height: 40 }} type="number" inputMode="numeric"
-                value={it.grams}
-                onChange={e => setItems(items.map((x, j) => j === i ? { ...x, grams: parseFloat(e.target.value) || 0 } : x))} />
             </div>
+            <input className="dd-input dd-num" style={{ padding: '6px 8px', height: 34, width: 74, textAlign: 'center', flex: 'none' }} type="number" inputMode="numeric"
+              value={it.grams}
+              onChange={e => setItems(items.map((x, j) => j === i ? { ...x, grams: parseFloat(e.target.value) || 0 } : x))} />
+            <span className="text-[11px]" style={{ color: 'var(--mut)', flex: 'none' }}>г</span>
             <button className="plus" onClick={() => setItems(items.filter((_, j) => j !== i))}>−</button>
           </div>
         );

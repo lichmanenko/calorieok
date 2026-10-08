@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Entry, type Slot } from './db';
 import type { DayNorma } from './db';
-import { getEntries, getProfile, deleteEntry, saveEntry, track, saveMealFromSlot, ensureDayNorma, getWeights, weightForecast, type WeightPoint } from './store';
+import { getEntries, getProfile, saveProfile, deleteEntry, saveEntry, track, saveMealFromSlot, ensureDayNorma, goalProgress, type GoalProgress } from './store';
 import { shiftISO, todayISO, humanDate, fromISO, MONTHS_NOM, fmt } from './lib';
 import { Ring, Sheet, useSwipe, Slide, Confirm, cx, Modal } from './ui';
 
@@ -29,20 +29,13 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
   const [confirmDel, setConfirmDel] = useState<Entry | null>(null);
   const [explain, setExplain] = useState<null | { title: string; text: string }>(null);
   const [goalInfo, setGoalInfo] = useState(false);
-  const weights = useLiveQuery(() => getWeights(), [], [] as WeightPoint[]);
-  const forecast = useLiveQuery(() => weightForecast(), [], null);
-  const goalProgress = useMemo(() => {
-    if (!profile?.goalWeightKg || profile.goal === 'none' || !weights?.length) return null;
-    const last = weights![weights!.length - 1].date;
-    const from = new Date(new Date(last + 'T00:00:00').getTime() - 89 * 86400000).toISOString().slice(0, 10);
-    const win = weights!.filter(w => w.date >= from);
-    const start = win[0]?.kg ?? weights![0].kg;
-    const cur = forecast?.trendKg ?? weights![weights!.length - 1].kg;
-    const total = start - profile.goalWeightKg;
-    if (total <= 0) return null;
-    const done = Math.max(0, Math.min(1, (start - cur) / total));
-    return { pct: Math.round(done * 100), start, cur, goal: profile.goalWeightKg, leftKg: Math.max(0, Math.round((cur - profile.goalWeightKg) * 10) / 10) };
-  }, [weights, forecast, profile?.goalWeightKg, profile?.goal]);
+  const goal = useLiveQuery(() => goalProgress(), [], null);
+  // фиксация целевой даты — записью нельзя внутри liveQuery, делаем после
+  useEffect(() => {
+    if (goal && !goal.dateFixed) {
+      getProfile().then(pr => { if (pr && !pr.goalDateIso) saveProfile({ ...pr, goalDateIso: goal.goalDate }); });
+    }
+  }, [goal?.dateFixed, goal?.goalDate]);
 
   const totals = useMemo(() => entries.reduce((s, e) => ({
     kcal: s.kcal + e.snapshot.kcal, p: s.p + e.snapshot.p, f: s.f + e.snapshot.f, c: s.c + e.snapshot.c,
@@ -80,7 +73,7 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
             <circle cx="48" cy="48" r="38" fill="none" stroke="var(--tr)" strokeWidth="12" />
             <circle cx="48" cy="48" r="38" fill="none" stroke="var(--acc)" strokeWidth="12" strokeLinecap="round" strokeDasharray="172 239" />
           </svg>
-          <span className="text-[16px] font-bold tracking-tight" style={{ color: 'var(--tx)' }}>deep dish</span>
+          <span className="text-[18px] font-bold tracking-tight" style={{ color: 'var(--tx)' }}>deep dish</span>
         </div>
       </div>
 
@@ -90,30 +83,32 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
             Заполни профиль — появится дневная норма и кольцо. <b style={{ color: 'var(--acc-fg)' }}>Профиль →</b>
           </div>
         )}
-        <div className="dd-card p-5 mb-3 flex items-center gap-5">
-          <button aria-label="Переключить кольцо" onClick={toggleRingMode} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-          {ringMode === 'kcal' ? (
-            <Ring percent={percent}>
-            <div className="text-lg font-extrabold dd-num">{fmt(rest)}</div>
-            <div className="text-[10px]" style={{ color: 'var(--mut)' }}>осталось</div>
-            </Ring>
-          ) : (
-            <MacroRing p={totals.p * 4} f={totals.f * 9} c={totals.c * 4} cap={target}>
-              <div className="text-lg font-extrabold dd-num">{fmt(rest)}</div>
-              <div className="text-[10px]" style={{ color: 'var(--mut)' }}>осталось</div>
-            </MacroRing>
-          )}
-          </button>
-          <div className="min-w-0">
-            <div className="text-xl font-bold dd-num">{fmt(totals.kcal)} ккал</div>
-            <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>из {target} · {percent}%</div>
-            {percent > 100 && <div className="text-xs mt-1" style={{ color: 'var(--warn)' }}>↑ перебор на {fmt(totals.kcal - target)}</div>}
-          </div>
-          {goalProgress && (
-            <div className="relative">
-              <GoalRing pct={goalProgress.pct} leftKg={goalProgress.leftKg} hasTrend={!!forecast} onTap={() => setGoalInfo(true)} />
+        <div className="dd-card p-5 mb-3">
+          <div className="grid grid-cols-3 items-center">
+            <div className="flex justify-center">
+              <button aria-label="Переключить кольцо" onClick={toggleRingMode} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                {ringMode === 'kcal' ? (
+                  <Ring percent={percent}>
+                    <div className="text-lg font-extrabold dd-num">{fmt(rest)}</div>
+                    <div className="text-[10px]" style={{ color: 'var(--mut)' }}>осталось</div>
+                  </Ring>
+                ) : (
+                  <MacroRing p={totals.p * 4} f={totals.f * 9} c={totals.c * 4} cap={target}>
+                    <div className="text-lg font-extrabold dd-num">{fmt(rest)}</div>
+                    <div className="text-[10px]" style={{ color: 'var(--mut)' }}>осталось</div>
+                  </MacroRing>
+                )}
+              </button>
             </div>
-          )}
+            <div className="text-center px-1">
+              <div className="text-xl font-bold dd-num">{fmt(totals.kcal)} ккал</div>
+              <div className="text-xs mt-1" style={{ color: 'var(--mut)' }}>из {target} · {percent}%</div>
+              {percent > 100 && <div className="text-xs mt-1" style={{ color: 'var(--warn)' }}>↑ перебор на {fmt(totals.kcal - target)}</div>}
+            </div>
+            <div className="flex justify-center">
+              {goal && <GoalRing goal={goal} onTap={() => setGoalInfo(true)} />}
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-2 mb-4">
@@ -185,18 +180,30 @@ export function TodayScreen({ date, setDate, onAdd, showTime }: {
       />
 
       <Modal open={goalInfo} onClose={() => setGoalInfo(false)}>
-        <div className="text-[15px] font-bold mb-2">Путь к цели</div>
+        <div className="text-[15px] font-bold mb-2">Выполнение цели</div>
         {(() => {
-          if (!goalProgress) return <p className="dd-modal-text">Задай цель по весу в профиле — здесь появится прогресс.</p>;
-          if (!forecast) return <p className="dd-modal-text">
-            Тренд веса пока не ведёт к цели {fmt(goalProgress.goal)} кг — сейчас он {goalProgress.cur > goalProgress.start ? 'выше старта' : 'стоит на месте'}.
-            Кольцо оживёт, когда динамика повернёт к цели.
-          </p>;
-          return <p className="dd-modal-text">
-            Старт {String(goalProgress.start).replace('.', ',')} кг → сейчас по тренду {String(goalProgress.cur).replace('.', ',')} кг, осталось {String(goalProgress.leftKg).replace('.', ',')} кг.
-            Темп тренда −{String(forecast.slopePerWeek).replace('.', ',')} кг/нед — при нём цель {fmt(goalProgress.goal)} кг примерно {ruDate(forecast.etaDate)}.
-            Это прогноз по сглаженной линии, а не по отдельным взвешиваниям.
-          </p>;
+          if (!goal) return <p className="dd-modal-text">Задай цель по весу в профиле — здесь появится прогноз её выполнения.</p>;
+          const rows: Array<[string, string]> = [
+            ['Текущий вес', `${String(goal.startKg).replace('.', ',')} кг`],
+            ['Цель', `${String(goal.goalKg).replace('.', ',')} кг к ${ruDate(goal.goalDate)}`],
+            ['Прогноз к этой дате', `${String(goal.forecastKg).replace('.', ',')} кг (по тренду ${goal.slopePerWeek > 0 ? '−' : '+'}${String(Math.abs(goal.slopePerWeek)).replace('.', ',')} кг/нед)`],
+            ['Выполнение', `${goal.pct}% — насколько к целевой дате закроется разрыв между текущим и целевым весом`],
+          ];
+          return (
+            <>
+              {rows.map(([k, v]) => (
+                <div key={k} className="py-1.5" style={{ borderBottom: '1px solid var(--tr)' }}>
+                  <div className="text-[11px]" style={{ color: 'var(--mut)' }}>{k}</div>
+                  <div className="text-[13px]">{v}</div>
+                </div>
+              ))}
+              <p className="dd-modal-text" style={{ marginTop: 8 }}>
+                Как считаем: тренд — усреднённая прямая по взвешиваниям за 8 недель (не реагирует на воду и соль).
+                Прогнозный вес — продолжение тренда до целевой даты. Выполнение = (текущий − прогноз) / (текущий − цель), но не меньше 0.
+                Цвет кольца: ниже 50% — тревожный, 50–80% — нейтральный, выше 80% — позитивный.
+              </p>
+            </>
+          );
         })()}
         <div className="dd-modal-row">
           <button className="dd-action strong" onClick={() => setGoalInfo(false)}>Понятно</button>
@@ -249,7 +256,6 @@ function SlotInfoSheet({ open, slot, entries, macroPct, onClose, onSave }: {
       </div>
       <div className="dd-input-row items-end">
         <div className="flex-1 min-w-0">
-          <div className="dd-field-label">Сохранить как приём</div>
           <input className="dd-input" value={name} onChange={e => setName(e.target.value)} placeholder="мой завтрак" />
         </div>
         <button className="dd-action strong" style={{ flex: 'none' }} disabled={saving || entries.length === 0}
@@ -278,20 +284,20 @@ function SlotLine({ e }: { e: Entry }) {
   );
 }
 
-/** Кольцо с сегментами Б/Ж/У: дуга делится по вкладу групп в съеденный калораж */
+/** Кольцо с сегментами Б/Ж/У: дуга делится по вкладу групп в съеденный калораж; оттенки одного цвета */
 function MacroRing({ p, f, c, cap, children }: { p: number; f: number; c: number; cap: number; children: React.ReactNode }) {
-  const size = 108, r = 46, sw = 10;
+  const size = 96, r = 39, sw = 10;
   const circ = 2 * Math.PI * r;
   const total = Math.max(1, p + f + c);
   const fill = Math.min(100, cap > 0 ? (p + f + c) / cap * 100 : 0);
   const seg = (v: number) => (circ * fill / 100) * (v / total);
   const gap = 2;
-  const parts: Array<[number, string]> = [[Math.max(0, seg(p) - gap), 'var(--acc)'], [Math.max(0, seg(f) - gap), 'var(--warn)'], [Math.max(0, seg(c) - gap), 'var(--acc2)']];
+  const parts: Array<[number, number]> = [[Math.max(0, seg(p) - gap), 1], [Math.max(0, seg(f) - gap), 0.62], [Math.max(0, seg(c) - gap), 0.36]];
   let acc = 0;
-  const arcs = parts.map(([len, color]) => {
+  const arcs = parts.map(([len, op]) => {
     const a = acc; acc += len + gap;
-    return <circle key={color} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={sw}
-      strokeDasharray={`${len} ${circ - len}`} strokeDashoffset={-a} strokeLinecap="butt" />;
+    return <circle key={op} cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--acc)" strokeWidth={sw}
+      opacity={op} strokeDasharray={`${len} ${circ - len}`} strokeDashoffset={-a} strokeLinecap="butt" />;
   });
   return (
     <div className="dd-ring" style={{ width: size, height: size }}>
@@ -304,22 +310,22 @@ function MacroRing({ p, f, c, cap, children }: { p: number; f: number; c: number
   );
 }
 
-/** Второе кольцо: прогресс к цели по весу (M1) */
-function GoalRing({ pct, leftKg, hasTrend, onTap }: { pct: number; leftKg: number; hasTrend: boolean; onTap: () => void }) {
-  const R = 15.9; // r=15.9 → длина окружности 100
+/** Кольцо цели (формула В.): выполнение = прогнозная разница / целевая разница; светофор по гамме */
+function GoalRing({ goal, onTap }: { goal: GoalProgress; onTap: () => void }) {
+  const R = 39; const size = 96; const sw = 10;
+  const color = goal.pct < 50 ? 'var(--warn)' : goal.pct < 80 ? 'var(--acc)' : 'var(--ok)';
+  const circ = 2 * Math.PI * R;
   return (
-    <button onClick={onTap} aria-label="Прогресс к цели по весу"
-      className="flex items-center justify-center" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-      <svg width="62" height="62" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="18" cy="18" r={R} fill="none" stroke="var(--tr)" strokeWidth="3" />
-        {hasTrend && pct > 0 && (
-          <circle cx="18" cy="18" r={R} fill="none" stroke="var(--ok)" strokeWidth="3" strokeLinecap="round"
-            strokeDasharray={`${Math.min(100, pct)} 100`} />
-        )}
+    <button onClick={onTap} aria-label="Выполнение цели" className="dd-ring" style={{ width: size, height: size, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={R} fill="none" stroke="var(--tr)" strokeWidth={sw} />
+        <circle cx={size / 2} cy={size / 2} r={R} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round"
+          strokeDasharray={`${circ * goal.pct / 100} ${circ}`} />
       </svg>
-      <span className="absolute dd-num" style={{ fontSize: 11.5, fontWeight: 700, color: hasTrend ? 'var(--tx)' : 'var(--mut)' }}>
-        {hasTrend ? String(Math.round(leftKg * 10) / 10).replace('.', ',') : '—'}
-      </span>
+      <div className="dd-ring-val">
+        <div className="text-lg font-extrabold dd-num">{goal.pct}%</div>
+        <div className="text-[10px]" style={{ color: 'var(--mut)' }}>цель</div>
+      </div>
     </button>
   );
 }
